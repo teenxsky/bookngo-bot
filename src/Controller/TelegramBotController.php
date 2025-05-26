@@ -11,6 +11,7 @@ use App\Service\BookingsService;
 use App\Service\CitiesService;
 use App\Service\CountriesService;
 use App\Service\HousesService;
+use App\Service\UsersService;
 use App\Telegram\SessionManager;
 use App\Telegram\WorkflowStateManager;
 use DateTimeImmutable;
@@ -25,7 +26,7 @@ use TelegramBot\Api\BotApi;
 use TelegramBot\Api\Types\Inline\InlineKeyboardMarkup;
 use TelegramBot\Api\Types\Update;
 
-#[Route('/api/v1/telegram')]
+#[Route('/api/v1/telegram', name: 'api_v1_telegram_')]
 class TelegramBotController extends AbstractController
 {
     private BotApi $telegram;
@@ -36,6 +37,7 @@ class TelegramBotController extends AbstractController
         private BookingsService $bookingsService,
         private CitiesService $citiesService,
         private CountriesService $countriesService,
+        private UsersService $usersService,
         private SerializerInterface $serializer,
         private WorkflowStateManager $stateManager,
         private LoggerInterface $logger
@@ -48,7 +50,7 @@ class TelegramBotController extends AbstractController
         $this->telegram = new BotApi($_ENV['TELEGRAM_BOT_TOKEN']);
     }
 
-    #[Route('/webhook', name: 'telegram_webhook', methods: ['POST'])]
+    #[Route('/webhook', name: 'webhook', methods: ['POST'])]
     public function webhook(): Response
     {
         try {
@@ -108,12 +110,6 @@ class TelegramBotController extends AbstractController
                 break;
             case WorkflowStateManager::HOUSES_LIST:
                 $this->handleHouseIdInput($chatId, $message->getText());
-                break;
-            case WorkflowStateManager::PHONE_NUMBER:
-                $this->handlePhoneNumber($chatId, $message->getText());
-                break;
-            case WorkflowStateManager::EDIT_PHONE_NUMBER:
-                $this->handlePhoneNumber($chatId, $message->getText());
                 break;
             case WorkflowStateManager::COMMENT:
                 $this->handleComment($chatId, $message->getText());
@@ -187,15 +183,6 @@ class TelegramBotController extends AbstractController
 
         } elseif (str_starts_with(
             $callbackQuery,
-            WorkflowStateManager::EDIT_PHONE_NUMBER
-        )) {
-            $this->requestPhoneNumber(
-                $chatId,
-                $this->stateManager::EDIT_PHONE_NUMBER
-            );
-
-        } elseif (str_starts_with(
-            $callbackQuery,
             WorkflowStateManager::DELETE_BOOKING
         )) {
             $this->showDeleteBooking($chatId);
@@ -247,15 +234,6 @@ class TelegramBotController extends AbstractController
                 $params['city_id'],
                 new DateTimeImmutable((string) $params['start_date']),
                 new DateTimeImmutable((string) $params['end_date']),
-            );
-
-        } elseif (str_starts_with(
-            $callbackQuery,
-            WorkflowStateManager::PHONE_NUMBER
-        )) {
-            $this->requestPhoneNumber(
-                $chatId,
-                WorkflowStateManager::PHONE_NUMBER
             );
 
         } elseif (str_starts_with(
@@ -366,7 +344,8 @@ class TelegramBotController extends AbstractController
         $state   = $this->stateManager::BOOKINGS_LIST;
         $session = $this->sessionsManager->getSession($chatId);
 
-        $bookings = $this->bookingsService->findBookingsByCriteria(['telegramUserId' => $userId], $isActual);
+        $user     = $this->usersService->findUserByCriteria(['telegramUserId' => $userId]);
+        $bookings = $this->bookingsService->findBookingsByUserId($user->getId(), $isActual);
 
         $buttons = [];
         foreach ($bookings as $booking) {
@@ -431,7 +410,6 @@ class TelegramBotController extends AbstractController
             $booking->getHouse()->getCity()->getCountry()->getName(),
             $booking->getHouse()->getCity()->getName(),
             $booking->getHouse()->getAddress(),
-            $booking->getPhoneNumber(),
             $booking->getComment() ?? 'None',
             $booking->getStartDate()->format('Y-m-d'),
             $booking->getEndDate()->format('Y-m-d'),
@@ -443,13 +421,6 @@ class TelegramBotController extends AbstractController
                 TelegramButtons::editComment(
                     $this->stateManager->buildCallback(
                         $this->stateManager::EDIT_COMMENT,
-                    ),
-                ),
-            ],
-            [
-                TelegramButtons::editPhoneNumber(
-                    $this->stateManager->buildCallback(
-                        $this->stateManager::EDIT_PHONE_NUMBER,
                     ),
                 ),
             ],
@@ -838,80 +809,10 @@ class TelegramBotController extends AbstractController
             $session['state'],
             ['house_id' => (int)$houseId] + ($session['data'] ?? [])
         );
-        $this->requestPhoneNumber(
+        $this->requestComment(
             $chatId,
-            $this->stateManager->getNext(
-                $session['state'],
-            ),
+            $this->stateManager->getNext($session['state']),
         );
-    }
-
-    private function requestPhoneNumber(int $chatId, string $state): void
-    {
-        $session = $this->sessionsManager->getSession($chatId);
-
-        $buttons[] = [
-            TelegramButtons::back(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::getPrev($state),
-                    $session['data']
-                )
-            ),
-            TelegramButtons::mainMenu(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::MAIN_MENU
-                )
-            ),
-        ];
-
-        $this->sendMessage(
-            $chatId,
-            TelegramMessages::SELECT_PHONE_NUMBER,
-            null,
-            new InlineKeyboardMarkup($buttons),
-        );
-        $this->sessionsManager->saveSession(
-            $chatId,
-            $state,
-            $session['data'] ?? []
-        );
-    }
-
-    private function handlePhoneNumber(int $chatId, string $phoneNumber): void
-    {
-        $session = $this->sessionsManager->getSession($chatId);
-        if (!preg_match('/^\+?[0-9]{1,3}?[0-9]{7,14}$/', $phoneNumber)) {
-            $this->sendMessage(
-                $chatId,
-                TelegramMessages::INCORRECT_PHONE_NUMBER,
-            );
-            return;
-        }
-
-        if ($session['state'] === $this->stateManager::PHONE_NUMBER) {
-            $this->sessionsManager->saveSession(
-                $chatId,
-                $session['state'],
-                ['phone_number' => $phoneNumber] + ($session['data'] ?? [])
-            );
-
-            $this->requestComment(
-                $chatId,
-                $this->stateManager->getNext($session['state']),
-            );
-        } else {
-            $updatedBooking = (new Booking())
-                ->setPhoneNumber($phoneNumber);
-            $this->bookingsService->updateBooking(
-                $updatedBooking,
-                $session['data']['booking_id']
-            );
-
-            $this->showBookingInfo(
-                $chatId,
-                $session['data']['booking_id']
-            );
-        }
     }
 
     private function requestComment(int $chatId, string $state): void
@@ -949,7 +850,7 @@ class TelegramBotController extends AbstractController
     {
         $session = $this->sessionsManager->getSession($chatId);
 
-        $comment = $comment === '-' ? 'None' : $comment;
+        $comment = $comment === '-' ? null : $comment;
         if ($session['state'] === $this->stateManager::COMMENT) {
             $this->sessionsManager->saveSession(
                 $chatId,
@@ -1032,7 +933,6 @@ class TelegramBotController extends AbstractController
             $house->getCity()->getCountry()->getName(),
             $house->getCity()->getName(),
             $house->getAddress(),
-            $session['data']['phone_number'],
             $session['data']['comment'] ?? 'None',
             $session['data']['start_date'],
             $session['data']['end_date'],
@@ -1062,13 +962,14 @@ class TelegramBotController extends AbstractController
 
         $error = $this->bookingsService->createBooking(
             (int) $session['data']['house_id'],
-            $session['data']['phone_number'],
+            null,
             $session['data']['comment'],
             new DateTimeImmutable($session['data']['start_date']),
             new DateTimeImmutable($session['data']['end_date']),
             $chatId,
             $userId,
-            $username
+            $username,
+            true
         );
 
         if ($error !== null) {

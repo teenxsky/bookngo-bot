@@ -65,7 +65,6 @@ class SessionManager
      *         country_id?: string,
      *         start_date?: string,
      *         end_date?: string,
-     *         phone_number?: string,
      *         comment?: string|null,
      *         booking_id?: int,
      *     }
@@ -118,7 +117,6 @@ class SessionManager
      *     end_date: string|null,
      *     house_id: int|null,
      *     is_actual: int|null,
-     *     phone_number: string|null,
      * }
      */
     private function normalizeSessionData(?array $data): array
@@ -133,7 +131,6 @@ class SessionManager
                 'end_date'     => null,
                 'house_id'     => null,
                 'is_actual'    => null,
-                'phone_number' => null,
             ];
         }
 
@@ -146,7 +143,6 @@ class SessionManager
             'end_date'     => isset($data['end_date']) ? (string)$data['end_date'] : null,
             'house_id'     => isset($data['house_id']) ? (int)$data['house_id'] : null,
             'is_actual'    => isset($data['is_actual']) ? (int)$data['is_actual'] : null,
-            'phone_number' => isset($data['phone_number']) ? (string)$data['phone_number'] : null,
         ];
     }
 

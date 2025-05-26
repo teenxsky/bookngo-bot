@@ -14,7 +14,6 @@ final class WorkflowStateManager
     public const BOOKINGS_MENU     = 'bookings_menu';
     public const BOOKINGS_LIST     = 'bookings_list';
     public const BOOKING_INFO      = 'booking_info';
-    public const EDIT_PHONE_NUMBER = 'edit_phone_number';
     public const EDIT_COMMENT      = 'edit_comment';
     public const DELETE_BOOKING    = 'delete_booking';
 
@@ -22,7 +21,6 @@ final class WorkflowStateManager
     public const CITIES          = 'cities';
     public const DATES           = 'dates';
     public const HOUSES_LIST     = 'houses_list';
-    public const PHONE_NUMBER    = 'phone_number';
     public const COMMENT         = 'comment';
     public const BOOKING_SUMMARY = 'booking_summary';
     public const BOOKING_CONFIRM = 'confirm_booking';
@@ -43,10 +41,6 @@ final class WorkflowStateManager
       self::BOOKING_INFO => [
         'prev' => self::BOOKINGS_LIST,
         'next' => null
-      ],
-      self::EDIT_PHONE_NUMBER => [
-        'prev' => self::BOOKING_INFO,
-        'next' => self::BOOKING_INFO
       ],
       self::EDIT_COMMENT => [
         'prev' => self::BOOKING_INFO,
@@ -70,14 +64,10 @@ final class WorkflowStateManager
       ],
       self::HOUSES_LIST => [
           'prev' => self::DATES,
-          'next' => self::PHONE_NUMBER
-      ],
-      self::PHONE_NUMBER => [
-          'prev' => self::HOUSES_LIST,
           'next' => self::COMMENT
       ],
       self::COMMENT => [
-          'prev' => self::PHONE_NUMBER,
+          'prev' => self::HOUSES_LIST,
           'next' => self::BOOKING_SUMMARY,
       ],
       self::BOOKING_SUMMARY => [
@@ -107,10 +97,6 @@ final class WorkflowStateManager
           'format' => self::BOOKING_INFO . '_%d',
           'keys'   => ['booking_id']
       ],
-      self::EDIT_PHONE_NUMBER => [
-          'format' => self::EDIT_PHONE_NUMBER,
-          'keys'   => [],
-      ],
       self::EDIT_COMMENT => [
           'format' => self::EDIT_COMMENT,
           'keys'   => [],
@@ -134,10 +120,6 @@ final class WorkflowStateManager
       self::HOUSES_LIST => [
           'format' => self::HOUSES_LIST . '_%d %s %s',
           'keys'   => ['city_id', 'start_date', 'end_date'],
-      ],
-      self::PHONE_NUMBER => [
-          'format' => self::PHONE_NUMBER,
-          'keys'   => [],
       ],
       self::COMMENT => [
           'format' => self::COMMENT,
