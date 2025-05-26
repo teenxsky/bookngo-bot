@@ -93,6 +93,10 @@ shell-backend:
 set-webhook:
 	$(DOCKER_COMPOSE) exec backend bash -c "bin/console app:set-webhook"
 
+# Creates a new admin user
+create-admin:
+	$(DOCKER_COMPOSE) exec backend bash -c "bin/console app:create-admin"
+
 
 #--------------- LINTING COMMANDS ---------------#
 
@@ -208,6 +212,7 @@ help:
 	@echo "  \033[1;36madd-dependency\033[0m       - Add a new symfony dependency"
 	@echo "  \033[1;36mshell-backend\033[0m        - Open backend container shell"
 	@echo "  \033[1;36mset-webhook\033[0m          - Set webhook for telegram"
+	@echo "  \033[1;36mcreate-admin\033[0m         - Create a new admin user"
 	@echo "  \033[1;33m------------------------\033[0m"
 	@echo "  \033[1;32mLinting commands:\033[0m"
 	@echo "  \033[1;36mrun-lint\033[0m             - Run all php linters"
