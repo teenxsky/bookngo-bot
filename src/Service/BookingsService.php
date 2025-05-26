@@ -6,6 +6,7 @@ namespace App\Service;
 
 use App\Constant\BookingsMessages;
 use App\Constant\HousesMessages;
+use App\Constant\UsersMessages;
 use App\Entity\Booking;
 use App\Entity\House;
 use App\Repository\BookingsRepository;
@@ -16,64 +17,65 @@ class BookingsService
 {
     public function __construct(
         private BookingsRepository $bookingsRepo,
-        private HousesService $housesService
+        private HousesService $housesService,
+        private UsersService $usersService
     ) {
     }
 
-    /**
-     * @param int $houseId
-     * @param string $phoneNumber
-     * @param string|null $comment
-     * @param DateTimeInterface $startDate
-     * @param DateTimeInterface $endDate
-     * @param int $telegramChatId
-     * @param int $telegramUserId
-     * @param string $telegramUsername
-     * @return string|null
-     */
     public function createBooking(
         int $houseId,
-        string $phoneNumber,
+        ?string $phoneNumber,
         ?string $comment,
         DateTimeInterface $startDate,
         DateTimeInterface $endDate,
-        ?int $telegramChatId,
-        ?int $telegramUserId,
-        ?string $telegramUsername
+        ?int $telegramChatId = null,
+        ?int $telegramUserId = null,
+        ?string $telegramUsername = null,
+        bool $isTelegramUser = false
     ): ?string {
+        if ($isTelegramUser) {
+            if (!$this->usersService->findUserByTelegramUsername(
+                $telegramUsername
+            )) {
+                $this->usersService->registerTelegramUser(
+                    $telegramChatId,
+                    $telegramUserId,
+                    $telegramUsername
+                );
+            }
+
+            $user = $this->usersService->findUserByTelegramUsername($telegramUsername);
+        } else {
+            $user = $this->usersService->findUserByPhoneNumber($phoneNumber);
+
+            if (!$user) {
+                return UsersMessages::NOT_FOUND;
+            }
+        }
+
         $result = $this->housesService->findHouseById($houseId);
-        if ($result['error'] !== null) {
+        if ($result['error']) {
             return $result['error'];
         }
         $house = $result['house'];
 
-        $error = $this->validateBookingDates(
-            $startDate,
-            $endDate
-        );
-        if ($error !== null) {
+        $error = $this->validateBookingDates($startDate, $endDate);
+        if ($error) {
             return $error;
         }
 
-        $error = $this->validateHouseAvailability(
-            $house,
-            $startDate,
-            $endDate
-        );
-        if ($error !== null) {
+        $error = $this->validateHouseAvailability($house, $startDate, $endDate);
+        if ($error) {
             return $error;
         }
 
         $booking = new Booking();
         $booking
             ->setHouse($house)
-            ->setPhoneNumber($phoneNumber)
+            ->setUser($user)
             ->setComment($comment)
             ->setStartDate($startDate)
-            ->setEndDate($endDate)
-            ->setTelegramChatId($telegramChatId)
-            ->setTelegramUserId($telegramUserId)
-            ->setTelegramUsername($telegramUsername);
+            ->setEndDate($endDate);
 
         $this->bookingsRepo->addBooking($booking);
 
@@ -141,6 +143,8 @@ class BookingsService
     }
 
     /**
+     * @param Booking $replacingBooking
+     * @param int $id
      * @return array{booking:Booking|null,error:string|null}
      */
     public function replaceBooking(Booking $replacingBooking, int $id): array
@@ -183,8 +187,8 @@ class BookingsService
         }
 
         $existingBooking
-            ->setPhoneNumber(
-                $updatedBooking->getPhoneNumber() ?? $existingBooking->getPhoneNumber()
+            ->setUser(
+                $updatedBooking->getUser() ?? $existingBooking->getUser()
             )
             ->setComment(
                 $updatedBooking->getComment() ?? $existingBooking->getComment()
@@ -273,12 +277,12 @@ class BookingsService
      * @param bool|null $isActual
      * @return Booking[]
      */
-    public function findBookingsByCriteria(
-        array $criteria,
+    public function findBookingsByUserId(
+        int $userId,
         ?bool $isActual = null
     ): array {
-        return $this->bookingsRepo->findBookingsByCriteria(
-            $criteria,
+        return $this->bookingsRepo->findBookingsByUserId(
+            $userId,
             $isActual
         );
     }
