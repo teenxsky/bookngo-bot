@@ -42,8 +42,8 @@ class CountriesServiceTest extends KernelTestCase
     private function truncateTables(): void
     {
         $connection = $this->entityManager->getConnection();
-        $connection->executeStatement('TRUNCATE TABLE country RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE city RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE countries RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE cities RESTART IDENTITY CASCADE');
     }
 
     private function createTestData(): void

@@ -8,24 +8,33 @@ use App\Entity\Booking;
 use App\Entity\City;
 use App\Entity\Country;
 use App\Entity\House;
+use App\Entity\User;
 use App\Repository\BookingsRepository;
 use App\Repository\HousesRepository;
+use App\Repository\UsersRepository;
 use App\Service\BookingsService;
 use App\Service\HousesService;
+use App\Service\UsersService;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Override;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class BookingsServiceTest extends KernelTestCase
 {
     private BookingsService $bookingsService;
     private HousesService $housesService;
+    private UsersService $usersService;
 
     /** @var BookingsRepository $bookingsRepository */
     private BookingsRepository $bookingsRepository;
     /** @var HousesRepository $housesRepository */
     private HousesRepository $housesRepository;
+    /** @var UsersRepository $usersRepository */
+    private UsersRepository $usersRepository;
 
     private EntityManagerInterface $entityManager;
 
@@ -35,6 +44,8 @@ class BookingsServiceTest extends KernelTestCase
     private House $testHouse2;
     private City $testCity;
     private Country $testCountry;
+    private User $testUser1;
+    private User $testUser2;
 
     #[Override]
     public function setUp(): void
@@ -42,16 +53,39 @@ class BookingsServiceTest extends KernelTestCase
         $kernel = self::bootKernel();
         $this->assertSame('test', $kernel->getEnvironment());
 
-        $this->entityManager      = static::getContainer()->get('doctrine')->getManager();
-        $this->bookingsRepository = $this->entityManager->getRepository(Booking::class);
-        $this->housesRepository   = $this->entityManager->getRepository(House::class);
+        $this->entityManager = static::getContainer()
+            ->get('doctrine')
+            ->getManager();
+        $this->bookingsRepository = $this->entityManager->getRepository(
+            Booking::class
+        );
+        $this->housesRepository = $this->entityManager->getRepository(
+            House::class
+        );
+        $this->usersRepository = $this->entityManager->getRepository(
+            User::class
+        );
 
         $this->housesService = new HousesService(
             $this->housesRepository
         );
+        $this->usersService = new UsersService(
+            $this->usersRepository,
+            static::getContainer()->get(
+                UserPasswordHasherInterface::class
+            ),
+            static::getContainer()->get(
+                JWTTokenManagerInterface::class
+            ),
+            static::getContainer()->get(
+                RefreshTokenManagerInterface::class
+            )
+        );
+
         $this->bookingsService = new BookingsService(
             $this->bookingsRepository,
-            $this->housesService
+            $this->housesService,
+            $this->usersService
         );
 
         $this->truncateTables();
@@ -61,10 +95,11 @@ class BookingsServiceTest extends KernelTestCase
     private function truncateTables(): void
     {
         $connection = $this->entityManager->getConnection();
-        $connection->executeStatement('TRUNCATE TABLE booking RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE house RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE city RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE country RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE bookings RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE houses RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE cities RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE countries RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
     }
 
     private function createTestData(): void
@@ -77,6 +112,20 @@ class BookingsServiceTest extends KernelTestCase
             ->setName('Test City')
             ->setCountry($this->testCountry);
         $this->entityManager->persist($this->testCity);
+
+        $this->testUser1 = (new User())
+            ->setPhoneNumber('+1234567890')
+            ->setTelegramChatId(12345)
+            ->setTelegramUserId(67890)
+            ->setTelegramUsername('test_user1');
+        $this->entityManager->persist($this->testUser1);
+
+        $this->testUser2 = (new User())
+            ->setPhoneNumber('+9876543210')
+            ->setTelegramChatId(54321)
+            ->setTelegramUserId(98765)
+            ->setTelegramUsername('test_user2');
+        $this->entityManager->persist($this->testUser2);
 
         $this->testHouse1 = (new House())
             ->setAddress('Test Address 1')
@@ -106,23 +155,25 @@ class BookingsServiceTest extends KernelTestCase
         $this->entityManager->persist($this->testHouse2);
 
         $this->testBookings[] = (new Booking())
-            ->setPhoneNumber('+1234567890')
             ->setComment('Test comment 1')
-            ->setStartDate(new DateTimeImmutable('2025-01-10'))
-            ->setEndDate(new DateTimeImmutable('2025-01-15'))
-            ->setTelegramChatId(12345)
-            ->setTelegramUserId(67890)
-            ->setTelegramUsername('test_user1')
-            ->setHouse($this->testHouse1);
+            ->setStartDate(
+                (new DateTimeImmutable())->modify('+1 week')
+            )
+            ->setEndDate(
+                (new DateTimeImmutable())->modify('+2 week')
+            )
+            ->setHouse($this->testHouse1)
+            ->setUser($this->testUser1);
 
         $this->testBookings[] = (new Booking())
-            ->setPhoneNumber('+9876543210')
-            ->setStartDate(new DateTimeImmutable('2025-02-01'))
-            ->setEndDate(new DateTimeImmutable('2025-02-05'))
-            ->setTelegramChatId(54321)
-            ->setTelegramUserId(98765)
-            ->setTelegramUsername('test_user2')
-            ->setHouse($this->testHouse2);
+            ->setStartDate(
+                (new DateTimeImmutable())->modify('+3 week')
+            )
+            ->setEndDate(
+                (new DateTimeImmutable())->modify('+4 week')
+            )
+            ->setHouse($this->testHouse2)
+            ->setUser($this->testUser2);
 
         foreach ($this->testBookings as $booking) {
             $this->entityManager->persist($booking);
@@ -133,39 +184,32 @@ class BookingsServiceTest extends KernelTestCase
     private function assertBookingsEqual(Booking $expected, Booking $actual): void
     {
         $this->assertEquals($expected->getId(), $actual->getId());
-        $this->assertEquals($expected->getPhoneNumber(), $actual->getPhoneNumber());
         $this->assertEquals($expected->getComment(), $actual->getComment());
         $this->assertEquals($expected->getStartDate()->format('Y-m-d'), $actual->getStartDate()->format('Y-m-d'));
         $this->assertEquals($expected->getEndDate()->format('Y-m-d'), $actual->getEndDate()->format('Y-m-d'));
-        $this->assertEquals($expected->getTelegramChatId(), $actual->getTelegramChatId());
-        $this->assertEquals($expected->getTelegramUserId(), $actual->getTelegramUserId());
-        $this->assertEquals($expected->getTelegramUsername(), $actual->getTelegramUsername());
         $this->assertEquals($expected->getHouse()->getId(), $actual->getHouse()->getId());
+        $this->assertEquals($expected->getUser()->getId(), $actual->getUser()->getId());
     }
 
     public function testCreateBooking(): void
     {
-        $startDate = (new DateTimeImmutable())->modify('+1 day');
-        $endDate   = (new DateTimeImmutable())->modify('+1 month');
+        $startDate = (new DateTimeImmutable())->modify('+5 week');
+        $endDate   = (new DateTimeImmutable())->modify('+6 week');
 
         $error = $this->bookingsService->createBooking(
             $this->testHouse1->getId(),
-            '+1111222333',
+            $this->testUser1->getPhoneNumber(),
             'New booking comment',
             $startDate,
             $endDate,
-            11111,
-            22222,
-            'new_user'
         );
 
         $this->assertNull($error);
 
-        $bookings = $this->bookingsRepository->findAllBookings();
+        $bookings = $this->bookingsRepository->findAll();
         $this->assertCount(count($this->testBookings) + 1, $bookings);
 
         $newBooking = $bookings[2];
-        $this->assertEquals('+1111222333', $newBooking->getPhoneNumber());
         $this->assertEquals('New booking comment', $newBooking->getComment());
         $this->assertEquals($this->testHouse1->getId(), $newBooking->getHouse()->getId());
     }
@@ -229,28 +273,19 @@ class BookingsServiceTest extends KernelTestCase
         $this->assertCount(count($this->testBookings), $bookings);
     }
 
-    public function testFindBookingsByCriteria(): void
+    public function testFindBookingsByUserId(): void
     {
-        // Test by telegram user id
-        $bookings = $this->bookingsService->findBookingsByCriteria(
-            ['telegramUserId' => $this->testBookings[0]->getTelegramUserId()],
+        $bookings = $this->bookingsService->findBookingsByUserId(
+            $this->testUser1->getId()
         );
         $this->assertCount(1, $bookings);
-        $this->assertEquals($this->testBookings[0]->getTelegramUsername(), $bookings[0]->getTelegramUsername());
-
-        // Test actual bookings
-        $bookings = $this->bookingsService->findBookingsByCriteria(
-            [],
-            true
-        );
-        $this->assertCount(0, $bookings);
+        $this->assertEquals($this->testBookings[0]->getId(), $bookings[0]->getId());
     }
 
     public function testUpdateBooking(): void
     {
         $booking        = $this->testBookings[0];
         $updatedBooking = (new Booking())
-            ->setPhoneNumber('+9999999999')
             ->setComment('Updated comment');
 
         $result = $this->bookingsService->updateBooking($updatedBooking, $booking->getId());
@@ -258,14 +293,9 @@ class BookingsServiceTest extends KernelTestCase
         $this->assertNull($result['error']);
         $this->assertNotNull($result['booking']);
         $this->assertEquals(
-            $updatedBooking->getPhoneNumber(),
-            $result['booking']->getPhoneNumber()
-        );
-        $this->assertEquals(
-            $updatedBooking->getComment(),
+            'Updated comment',
             $result['booking']->getComment()
         );
-        // Ensure other fields didn't change
         $this->assertEquals(
             $booking->getHouse()->getId(),
             $result['booking']->getHouse()->getId()
@@ -276,22 +306,18 @@ class BookingsServiceTest extends KernelTestCase
     {
         $booking          = $this->testBookings[0];
         $replacingBooking = (new Booking())
-            ->setPhoneNumber('+9999999999')
             ->setComment('Replaced booking')
             ->setHouse($this->testHouse2)
             ->setStartDate(new DateTimeImmutable('2025-01-10'))
-            ->setEndDate(new DateTimeImmutable('2025-01-15'));
+            ->setEndDate(new DateTimeImmutable('2025-01-15'))
+            ->setUser($this->testUser1);
 
         $result = $this->bookingsService->replaceBooking($replacingBooking, $booking->getId());
 
         $this->assertNull($result['error']);
         $this->assertNotNull($result['booking']);
         $this->assertEquals(
-            $replacingBooking->getPhoneNumber(),
-            $result['booking']->getPhoneNumber()
-        );
-        $this->assertEquals(
-            $replacingBooking->getComment(),
+            'Replaced booking',
             $result['booking']->getComment()
         );
         $this->assertEquals(
@@ -322,16 +348,17 @@ class BookingsServiceTest extends KernelTestCase
         // House is available for new dates
         $error = $this->bookingsService->validateHouseAvailability(
             $this->testHouse1,
-            new DateTimeImmutable('2025-03-01'),
-            new DateTimeImmutable('2025-03-05')
+            (new DateTimeImmutable())->modify('+3 week'),
+            new DateTimeImmutable('+4 week')
         );
+
         $this->assertNull($error);
 
         // House is not available (conflict with existing booking)
         $error = $this->bookingsService->validateHouseAvailability(
             $this->testHouse1,
-            new DateTimeImmutable('2025-01-12'),
-            new DateTimeImmutable('2025-01-16')
+            (new DateTimeImmutable())->modify('+1 week'),
+            (new DateTimeImmutable())->modify('+2 week')
         );
         $this->assertNotNull($error);
     }
