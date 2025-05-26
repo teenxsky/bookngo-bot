@@ -17,8 +17,9 @@ class HousesMessages extends ApiMessages
     public const UPDATED       = 'House updated!';
     public const DELETED       = 'House deleted!';
     public const NOT_FOUND     = 'House not found.';
-    public const BOOKED        = 'House is booked.';
-    public const NOT_AVAILABLE = 'House is not available.';
+    public const BOOKED        = 'Cannot delete booked house.';
+    public const NOT_AVAILABLE = 'House is not available for selected dates.';
+    public const WRONG_CITY    = 'House does not belong to the selected city.';
 
     /**
      * @return array{message: string, errors?: array}

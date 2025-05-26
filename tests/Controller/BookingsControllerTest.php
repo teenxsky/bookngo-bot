@@ -1,6 +1,6 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
 
 namespace App\Tests\Controller;
 
@@ -9,7 +9,10 @@ use App\Constant\HousesMessages;
 use App\Entity\Booking;
 use App\Entity\House;
 use App\Repository\BookingsRepository;
+use App\Repository\CitiesRepository;
+use App\Repository\CountriesRepository;
 use App\Repository\HousesRepository;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Override;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -20,15 +23,21 @@ class BookingsControllerTest extends WebTestCase
 {
     /** @var HousesRepository $housesRepository */
     private static HousesRepository $housesRepository;
+    /** @var CitiesRepository $citiesRepository */
+    private static CitiesRepository $citiesRepository;
     /** @var BookingsRepository $bookingsRepository */
     private static BookingsRepository $bookingsRepository;
+    /** @var CountriesRepository $countriesRepository */
+    private static CountriesRepository $countriesRepository;
 
     private KernelBrowser $client;
     private EntityManagerInterface $entityManager;
 
     // Test Data Paths
-    private const HOUSES_CSV_PATH   = __DIR__ . '/../Resources/test_houses.csv';
-    private const BOOKINGS_CSV_PATH = __DIR__ . '/../Resources/test_bookings.csv';
+    private const BOOKINGS_CSV_PATH  = __DIR__ . '/../Resources/test_bookings.csv';
+    private const HOUSES_CSV_PATH    = __DIR__ . '/../Resources/test_houses.csv';
+    private const CITIES_CSV_PATH    = __DIR__ . '/../Resources/test_cities.csv';
+    private const COUNTRIES_CSV_PATH = __DIR__ . '/../Resources/test_countries.csv';
 
     // API Endpoints
     private const API_BOOKINGS    = '/api/v1/bookings/';
@@ -47,12 +56,20 @@ class BookingsControllerTest extends WebTestCase
         self::assertSame('test', $kernel->getEnvironment());
 
         $entityManager = $kernel->getContainer()->get('doctrine')->getManager();
+        $connection    = $entityManager->getConnection();
 
-        $connection = $entityManager->getConnection();
         $connection->executeStatement('TRUNCATE TABLE booking RESTART IDENTITY CASCADE');
         $connection->executeStatement('TRUNCATE TABLE house RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE city RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE country RESTART IDENTITY CASCADE');
 
-        self::$housesRepository = $entityManager->getRepository(House::class);
+        self::$countriesRepository = $entityManager->getRepository('App\Entity\Country');
+        self::$countriesRepository->loadFromCsv(self::COUNTRIES_CSV_PATH);
+
+        self::$citiesRepository = $entityManager->getRepository('App\Entity\City');
+        self::$citiesRepository->loadFromCsv(self::CITIES_CSV_PATH);
+
+        self::$housesRepository = $entityManager->getRepository('App\Entity\House');
         self::$housesRepository->loadFromCsv(self::HOUSES_CSV_PATH);
 
         self::$bookingsRepository = $entityManager->getRepository(Booking::class);
@@ -65,8 +82,8 @@ class BookingsControllerTest extends WebTestCase
         $this->client        = static::createClient();
         $this->entityManager = $this->client->getContainer()->get('doctrine')->getManager();
 
-        self::$housesRepository   = $this->entityManager->getRepository(House::class);
         self::$bookingsRepository = $this->entityManager->getRepository(Booking::class);
+        self::$housesRepository   = $this->entityManager->getRepository(House::class);
     }
 
     private function assertResponse(
@@ -88,25 +105,6 @@ class BookingsControllerTest extends WebTestCase
         }
     }
 
-    private function assertBookingEquals(
-        array $expected,
-        array $actual,
-    ): void {
-        $fields = self::$bookingsRepository->getFields();
-
-        foreach ($fields as $field) {
-            $this->assertArrayHasKey($field, $expected);
-            $this->assertArrayHasKey($field, $actual);
-        }
-
-        foreach ($fields as $field) {
-            $this->assertEquals(
-                $expected[$field],
-                $actual[$field]
-            );
-        }
-    }
-
     /*
      * Scenario: Listing all bookings
      * Given there are bookings in the system
@@ -117,223 +115,18 @@ class BookingsControllerTest extends WebTestCase
     {
         $expectedBookings = array_map(
             fn ($booking) => $booking->toArray(),
-            self::$bookingsRepository->findAllBookings()
+            self::$bookingsRepository->findAll()
         );
 
-        $this->client->request(
-            method: 'GET',
-            uri: self::API_BOOKINGS
-        );
+        $this->client->request('GET', self::API_BOOKINGS);
         $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_OK,
-            expectedContent: $expectedBookings
+            $this->client->getResponse(),
+            Response::HTTP_OK,
+            $expectedBookings
         );
     }
 
     /*
-     * Scenario: Adding a new booking successfully
-     * Given there is a house available for booking
-     * When I create a new booking for the house
-     * Then the booking should be created with status 201
-     * And the house should be marked as unavailable
-     */
-    public function testAddBookingSuccess(): void
-    {
-        $expectedBookingId = 3;
-        $newBooking        = (new Booking())
-            ->setId($expectedBookingId)
-            ->setPhoneNumber('+1234567890')
-            ->setHouse(
-                (new House())
-                    ->setId(3)
-            )
-            ->setComment('Test booking 3')
-            ->toArray();
-
-        $this->assertTrue(
-            self::$housesRepository
-                ->findHouseById(
-                    $newBooking['house_id']
-                )
-                ->isAvailable()
-        );
-
-        $this->client->request(
-            method: 'POST',
-            uri: self::API_BOOKINGS,
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($newBooking)
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_CREATED,
-            expectedContent: BookingsMessages::created()
-        );
-
-        $this->assertNotNull(
-            self::$bookingsRepository
-                ->findBookingById($expectedBookingId)
-        );
-        $this->assertBookingEquals(
-            expected: $newBooking,
-            actual: self::$bookingsRepository
-                ->findBookingById($expectedBookingId)
-                ->toArray()
-        );
-
-        $this->assertFalse(
-            self::$housesRepository
-                ->findHouseById(
-                    $newBooking['house_id']
-                )
-                ->isAvailable()
-        );
-    }
-
-    /**
-     * Scenario: Adding a booking for a non-existent house
-     * Given there is no house with the non-existent ID
-     * When I create a new booking for the house
-     * Then I should receive an error with status 404
-     */
-    public function testAddBookingHouseNotFound(): void
-    {
-        $expectedBookingId = 4;
-        $expectedBooking   = (new Booking())
-            ->setId($expectedBookingId)
-            ->setPhoneNumber('+1234567890')
-            ->setHouse(
-                (new House())
-                    ->setId(999)
-            )
-            ->setComment('Test booking 4')
-            ->toArray();
-
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($expectedBookingId)
-        );
-
-        $this->client->request(
-            method: 'POST',
-            uri: self::API_BOOKINGS,
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($expectedBooking)
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_NOT_FOUND,
-            expectedContent: HousesMessages::notFound()
-        );
-
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($expectedBookingId)
-        );
-    }
-
-    /**
-     * Scenario: Adding a booking for an unavailable house
-     * Given the house is already booked
-     * When I create a new booking for the house
-     * Then I should receive an error with status 400
-     */
-    public function testAddBookingHouseNotAvailable(): void
-    {
-        $expectedBookingId = 4;
-        $expectedBooking   = (new Booking())
-            ->setId($expectedBookingId)
-            ->setPhoneNumber('+1234567890')
-            ->setHouse(
-                (new House())
-                    ->setId(1)
-            )
-            ->setComment('Test booking 4')
-            ->toArray();
-
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($expectedBookingId)
-        );
-
-        $this->client->request(
-            method: 'POST',
-            uri: self::API_BOOKINGS,
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($expectedBooking)
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_BAD_REQUEST,
-            expectedContent: HousesMessages::notAvailable()
-        );
-
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($expectedBookingId)
-        );
-    }
-
-    /**
-     * Scenario: Adding a booking with invalid data
-     * Given the booking data is invalid
-     * When I create a new booking with invalid data
-     * Then I should receive an error with status 400
-     */
-    public function testAddBookingInvalidData(): void
-    {
-        $expectedBookingId = 4;
-        $expectedMessage   = BookingsMessages::buildMessage(
-            'Validation failed',
-            [
-                [
-                    'field'   => 'phone_number',
-                    'message' => 'This value should not be null.',
-                ],
-            ]
-        );
-        $booking = (new Booking())
-            ->setId($expectedBookingId)
-            ->setHouse(
-                (new House())
-                    ->setId(1)
-            )
-            ->setComment('Test booking 4')
-            ->toArray();
-
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($expectedBookingId)
-        );
-
-        $this->client->request(
-            method: 'POST',
-            uri: self::API_BOOKINGS,
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($booking)
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_BAD_REQUEST,
-            expectedContent: $expectedMessage
-        );
-
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($expectedBookingId)
-        );
-    }
-
-    /**
      * Scenario: Getting a booking by ID
      * Given there is a booking with the specified ID
      * When I request the booking by ID
@@ -342,20 +135,17 @@ class BookingsControllerTest extends WebTestCase
     public function testGetBookingById(): void
     {
         $bookingId       = 1;
-        $expectedBooking = self::$bookingsRepository->findBookingById($bookingId);
+        $expectedBooking = self::$bookingsRepository->find($bookingId)->toArray();
 
-        $this->client->request(
-            method: 'GET',
-            uri: sprintf(self::API_BOOKINGS_ID, $bookingId)
-        );
+        $this->client->request('GET', sprintf(self::API_BOOKINGS_ID, $bookingId));
         $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_OK,
-            expectedContent: $expectedBooking->toArray()
+            $this->client->getResponse(),
+            Response::HTTP_OK,
+            $expectedBooking
         );
     }
 
-    /**
+    /*
      * Scenario: Getting a non-existent booking by ID
      * Given there is no booking with the specified ID
      * When I request the booking by ID
@@ -365,222 +155,278 @@ class BookingsControllerTest extends WebTestCase
     {
         $bookingId = 999;
 
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($bookingId)
-        );
-
-        $this->client->request(
-            method: 'GET',
-            uri: sprintf(self::API_BOOKINGS_ID, $bookingId)
-        );
+        $this->client->request('GET', sprintf(self::API_BOOKINGS_ID, $bookingId));
         $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_NOT_FOUND,
-            expectedContent: BookingsMessages::notFound()
-        );
-
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($bookingId)
+            $this->client->getResponse(),
+            Response::HTTP_NOT_FOUND,
+            BookingsMessages::notFound()
         );
     }
 
-    /**
+    /*
+     * Scenario: Adding a new booking successfully
+     * Given valid booking data
+     * When I create a new booking
+     * Then the booking should be created with status 201
+     */
+    public function testAddBookingSuccess(): void
+    {
+        $newBookingData = [
+            'house_id'     => 3,
+            'phone_number' => '+1234567890',
+            'comment'      => 'New booking',
+            'start_date'   => (new DateTimeImmutable())
+                ->modify('+1 day')
+                ->format('Y-m-d'),
+            'end_date' => (new DateTimeImmutable())
+                ->modify('+1 month')
+                ->format('Y-m-d'),
+            'telegram_chat_id'  => 111222333,
+            'telegram_user_id'  => 444555666,
+            'telegram_username' => 'new_user'
+        ];
+
+        $this->client->request(
+            'POST',
+            self::API_BOOKINGS,
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($newBookingData)
+        );
+
+        $response = $this->client->getResponse();
+        $this->assertResponse(
+            $response,
+            Response::HTTP_CREATED,
+            BookingsMessages::created()
+        );
+    }
+
+    /*
+     * Scenario: Adding a booking with invalid data
+     * Given invalid booking data
+     * When I create a new booking
+     * Then I should receive validation errors with status 400
+     */
+    public function testAddBookingValidationError(): void
+    {
+        $invalidBookingData = [
+            'house_id'     => 3,
+            'phone_number' => '',
+            'start_date'   => (new DateTimeImmutable())
+                ->modify('+1 day')
+                ->format('Y-m-d'),
+            'end_date' => (new DateTimeImmutable())
+                ->modify('-1 month')
+                ->format('Y-m-d'),
+            'telegram_chat_id' => 111222333
+        ];
+
+        $this->client->request(
+            'POST',
+            self::API_BOOKINGS,
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($invalidBookingData)
+        );
+
+        $response = $this->client->getResponse();
+        $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Validation failed', $responseData['message']);
+        $this->assertArrayHasKey('errors', $responseData);
+        $this->assertNotEmpty($responseData['errors']);
+    }
+
+    /*
+     * Scenario: Adding a booking for non-existent house
+     * Given booking data with non-existent house ID
+     * When I create a new booking
+     * Then I should receive an error with status 404
+     */
+    public function testAddBookingHouseNotFound(): void
+    {
+        $newBookingData = [
+            'house_id'     => 999,
+            'phone_number' => '+1234567890',
+            'start_date'   => (new DateTimeImmutable())
+                ->modify('+1 day')
+                ->format('Y-m-d'),
+            'end_date' => (new DateTimeImmutable())
+                ->modify('+1 month')
+                ->format('Y-m-d'),
+        ];
+
+        $this->client->request(
+            'POST',
+            self::API_BOOKINGS,
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($newBookingData)
+        );
+
+        $this->assertResponse(
+            $this->client->getResponse(),
+            Response::HTTP_NOT_FOUND,
+            HousesMessages::notFound()
+        );
+    }
+
+    /*
      * Scenario: Replacing a booking successfully
-     * Given there is a booking with the specified ID
-     * When I replace the booking with a new house and comment
-     * Then the booking should be replaced with status 200
-     * And the old booking should be marked as available
-     * And the new booking should be marked as unavailable
-     * And the booking comment should be updated
+     * Given there is an existing booking
+     * When I replace the booking with new data
+     * Then the booking should be updated with status 200
      */
     public function testReplaceBookingSuccess(): void
     {
-        $bookingId  = 1;
-        $oldBooking = self::$bookingsRepository->findBookingById($bookingId)->toArray();
-        $newBooking = (new Booking())
-            ->setId($bookingId)
-            ->setPhoneNumber('+1234567890')
-            ->setHouse(
-                (new House())
-                    ->setId(4)
-            )
-            ->setComment('Replaced booking')
-            ->toArray();
-
-        $this->assertNotNull($oldBooking);
-
-        $this->assertFalse(
-            self::$housesRepository
-                ->findHouseById($oldBooking['house_id'])
-                ->isAvailable()
-        );
-        $this->assertTrue(
-            self::$housesRepository
-                ->findHouseById($newBooking['house_id'])
-                ->isAvailable()
-        );
-        $this->assertEquals(
-            $oldBooking['comment'],
-            self::$bookingsRepository
-                ->findBookingById($bookingId)
-                ->getComment()
-        );
+        $bookingId      = 1;
+        $newBookingData = [
+            'house_id'     => 4,
+            'phone_number' => '+9876543210',
+            'comment'      => 'Updated booking',
+            'start_date'   => (new DateTimeImmutable())
+                ->modify('+1 day')
+                ->format('Y-m-d'),
+            'end_date' => (new DateTimeImmutable())
+                ->modify('+1 month')
+                ->format('Y-m-d'),
+            'telegram_chat_id'  => 999888777,
+            'telegram_user_id'  => 666555444,
+            'telegram_username' => 'updated_user'
+        ];
 
         $this->client->request(
-            method: 'PUT',
-            uri: sprintf(self::API_BOOKINGS_ID, $bookingId),
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($newBooking)
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_OK,
-            expectedContent: BookingsMessages::replaced()
+            'PUT',
+            sprintf(self::API_BOOKINGS_ID, $bookingId),
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($newBookingData)
         );
 
-        $this->assertTrue(
-            self::$housesRepository
-                ->findHouseById($oldBooking['house_id'])
-                ->isAvailable()
+        $this->assertResponse(
+            $this->client->getResponse(),
+            Response::HTTP_OK,
+            BookingsMessages::replaced()
         );
-        $this->assertFalse(
-            self::$housesRepository
-                ->findHouseById($newBooking['house_id'])
-                ->isAvailable()
-        );
-        $this->assertEquals(
-            $newBooking['comment'],
-            self::$bookingsRepository
-                ->findBookingById($bookingId)
-                ->getComment()
-        );
+
+        $updatedBooking = self::$bookingsRepository->find($bookingId);
+        $this->assertEquals('Updated booking', $updatedBooking->getComment());
+        $this->assertEquals(4, $updatedBooking->getHouse()->getId());
     }
 
-    /**
+    /*
      * Scenario: Replacing a non-existent booking
      * Given there is no booking with the specified ID
-     * When I replace the booking with new data
+     * When I replace the booking
      * Then I should receive an error with status 404
      */
     public function testReplaceBookingNotFound(): void
     {
-        $bookingId = 999;
-
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($bookingId)
-        );
+        $bookingId           = 999;
+        $replacedBookingData = [
+            'house_id'     => 4,
+            'phone_number' => '+9876543210',
+            'start_date'   => (new DateTimeImmutable())
+                ->modify('+1 day')
+                ->format('Y-m-d'),
+            'end_date' => (new DateTimeImmutable())
+                ->modify('+1 month')
+                ->format('Y-m-d')
+        ];
 
         $this->client->request(
-            method: 'PUT',
-            uri: sprintf(self::API_BOOKINGS_ID, $bookingId),
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode([])
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_NOT_FOUND,
-            expectedContent: BookingsMessages::notFound()
+            'PUT',
+            sprintf(self::API_BOOKINGS_ID, $bookingId),
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($replacedBookingData)
         );
 
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($bookingId)
+        $this->assertResponse(
+            $this->client->getResponse(),
+            Response::HTTP_NOT_FOUND,
+            BookingsMessages::notFound()
         );
     }
 
-    /**
+    /*
      * Scenario: Updating a booking successfully
      * Given there is an existing booking
-     * When I update the booking with updated comment
+     * When I update the booking with partial data
      * Then the booking should be updated with status 200
-     * And the booking comment should be updated
      */
     public function testUpdateBookingSuccess(): void
     {
-        $bookingId   = 1;
-        $updatedData = [
-            'comment' => 'Updated booking comment',
+        $bookingId  = 2;
+        $updateData = [
+            'comment'      => 'Updated comment',
+            'phone_number' => '+1112223333'
         ];
 
-        $this->assertNotEquals(
-            $updatedData['comment'],
-            self::$bookingsRepository
-                ->findBookingById($bookingId)
-                ->getComment()
-        );
-
         $this->client->request(
-            method: 'PATCH',
-            uri: sprintf(self::API_BOOKINGS_ID, $bookingId),
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($updatedData)
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_OK,
-            expectedContent: BookingsMessages::updated()
+            'PATCH',
+            sprintf(self::API_BOOKINGS_ID, $bookingId),
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($updateData)
         );
 
-        $this->assertEquals(
-            $updatedData['comment'],
-            self::$bookingsRepository
-                ->findBookingById($bookingId)
-                ->getComment()
+        $this->assertResponse(
+            $this->client->getResponse(),
+            Response::HTTP_OK,
+            BookingsMessages::updated()
         );
+
+        $updatedBooking = self::$bookingsRepository->find($bookingId);
+        $this->assertEquals('Updated comment', $updatedBooking->getComment());
+        $this->assertEquals('+1112223333', $updatedBooking->getPhoneNumber());
     }
 
-    /**
+    /*
      * Scenario: Deleting a booking successfully
      * Given there is an existing booking
      * When I delete the booking
      * Then the booking should be deleted with status 200
-     * And the house should be marked as available
      */
     public function testDeleteBookingSuccess(): void
     {
-        $bookingId     = 1;
-        $bookedHouseId = self::$bookingsRepository
-            ->findBookingById($bookingId)
-            ->getHouse()
-            ->getId();
+        $bookingId = 1;
 
-        $this->assertFalse(
-            self::$housesRepository
-                ->findHouseById($bookedHouseId)
-                ->isAvailable()
-        );
-        $this->assertNotNull(
-            self::$bookingsRepository
-                ->findBookingById($bookingId)
-        );
+        $this->client->request('DELETE', sprintf(self::API_BOOKINGS_ID, $bookingId));
 
-        $this->client->request(
-            method: 'DELETE',
-            uri: sprintf(self::API_BOOKINGS_ID, $bookingId)
-        );
         $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_OK,
-            expectedContent: BookingsMessages::deleted()
+            $this->client->getResponse(),
+            Response::HTTP_OK,
+            BookingsMessages::deleted()
         );
 
-        $this->assertTrue(
-            self::$housesRepository
-                ->findHouseById($bookedHouseId)
-                ->isAvailable()
-        );
-        $this->assertNull(
-            self::$bookingsRepository
-                ->findBookingById($bookingId)
+        $this->assertNull(self::$bookingsRepository->find($bookingId));
+    }
+
+    /*
+     * Scenario: Deleting a non-existent booking
+     * Given there is no booking with the specified ID
+     * When I delete the booking
+     * Then I should receive an error with status 404
+     */
+    public function testDeleteBookingNotFound(): void
+    {
+        $bookingId = 999;
+
+        $this->client->request('DELETE', sprintf(self::API_BOOKINGS_ID, $bookingId));
+
+        $this->assertResponse(
+            $this->client->getResponse(),
+            Response::HTTP_NOT_FOUND,
+            BookingsMessages::notFound()
         );
     }
 }

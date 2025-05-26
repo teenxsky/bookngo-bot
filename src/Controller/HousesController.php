@@ -1,12 +1,13 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
 
 namespace App\Controller;
 
 use App\Constant\HousesMessages;
 use App\Entity\House;
-use App\Repository\HousesRepository;
+use App\Service\CitiesService;
+use App\Service\HousesService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,7 +23,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 class HousesController extends AbstractController
 {
     public function __construct(
-        private HousesRepository $housesRepository,
+        private HousesService $housesService,
+        private CitiesService $citiesService,
         private SerializerInterface $serializer,
         private ValidatorInterface $validator
     ) {
@@ -31,12 +33,12 @@ class HousesController extends AbstractController
     #[Route('/', name: 'houses_list', methods: ['GET'])]
     public function listHouses(): JsonResponse
     {
-        $housesArray = array_map(
-            fn ($house) => $house->toArray(),
-            $this->housesRepository->findAllHouses()
+        $houses = array_map(
+            fn ($booking) => $booking->toArray(),
+            $this->housesService->findAllHouses()
         );
 
-        return new JsonResponse($housesArray, Response::HTTP_OK);
+        return new JsonResponse($houses, Response::HTTP_OK);
     }
 
     #[Route('/', name: 'houses_add', methods: ['POST'])]
@@ -52,7 +54,7 @@ class HousesController extends AbstractController
             return $error;
         }
 
-        $this->housesRepository->addHouse($house);
+        $this->housesService->addHouse($house);
         return new JsonResponse(
             HousesMessages::created(),
             Response::HTTP_CREATED
@@ -62,16 +64,16 @@ class HousesController extends AbstractController
     #[Route('/{id}', name: 'houses_get_by_id', methods: ['GET'])]
     public function getHouse(int $id): JsonResponse
     {
-        $house = $this->housesRepository->findHouseById($id);
-        return $house
-        ? new JsonResponse(
-            $house->toArray(),
-            Response::HTTP_OK
-        )
-        : new JsonResponse(
-            HousesMessages::notFound(),
-            Response::HTTP_NOT_FOUND
-        );
+        $result = $this->housesService->findHouseById($id);
+        return $result['house']
+            ? new JsonResponse(
+                $result['house']->toArray(),
+                Response::HTTP_OK
+            )
+            : new JsonResponse(
+                HousesMessages::notFound(),
+                Response::HTTP_NOT_FOUND
+            );
     }
 
     #[Route('/{id}', name: 'houses_replace_by_id', methods: ['PUT'])]
@@ -82,26 +84,21 @@ class HousesController extends AbstractController
             return $replacingHouse;
         }
 
-        $existingHouse = $this->housesRepository->findHouseById($id);
-        if (!$existingHouse) {
-            return new JsonResponse(
-                HousesMessages::notFound(),
-                Response::HTTP_NOT_FOUND
-            );
-        }
-
-        $replacingHouse->setId($id);
-
         $error = $this->validateHouse($replacingHouse);
         if ($error) {
             return $error;
         }
 
-        $this->housesRepository->updateHouse($replacingHouse);
-        return new JsonResponse(
-            HousesMessages::replaced(),
-            Response::HTTP_OK
-        );
+        $result = $this->housesService->replaceHouse($replacingHouse, $id);
+        return $result
+            ? new JsonResponse(
+                HousesMessages::notFound(),
+                Response::HTTP_NOT_FOUND
+            )
+            : new JsonResponse(
+                HousesMessages::replaced(),
+                Response::HTTP_OK
+            );
     }
 
     #[Route('/{id}', name: 'houses_update_by_id', methods: ['PATCH'])]
@@ -112,72 +109,37 @@ class HousesController extends AbstractController
             return $updatedHouse;
         }
 
-        $existingHouse = $this->housesRepository->findHouseById($id);
-        if (!$existingHouse) {
-            return new JsonResponse(
+        $result = $this->housesService->updateHouseFields($updatedHouse, $id);
+        return $result
+            ? new JsonResponse(
                 HousesMessages::notFound(),
                 Response::HTTP_NOT_FOUND
+            )
+            : new JsonResponse(
+                HousesMessages::updated(),
+                Response::HTTP_OK
             );
-        }
-
-        $existingHouse
-            ->setIsAvailable(
-                $updatedHouse->isAvailable() ?? $existingHouse->isAvailable()
-            )
-            ->setBedroomsCount(
-                $updatedHouse->getBedroomsCount() ?? $existingHouse->getBedroomsCount()
-            )
-            ->setPricePerNight(
-                $updatedHouse->getPricePerNight() ?? $existingHouse->getPricePerNight()
-            )
-            ->setHasAirConditioning(
-                $updatedHouse->hasAirConditioning() ?? $existingHouse->hasAirConditioning()
-            )
-            ->setHasWifi(
-                $updatedHouse->hasWifi() ?? $existingHouse->hasWifi()
-            )
-            ->setHasKitchen(
-                $updatedHouse->hasKitchen() ?? $existingHouse->hasKitchen()
-            )
-            ->setHasParking(
-                $updatedHouse->hasParking() ?? $existingHouse->hasParking()
-            )
-            ->setHasSeaView(
-                $updatedHouse->hasSeaView() ?? $existingHouse->hasSeaView()
-            );
-
-        $error = $this->validateHouse($existingHouse);
-        if ($error) {
-            return $error;
-        }
-
-        $this->housesRepository->updateHouse($existingHouse);
-        return new JsonResponse(
-            HousesMessages::updated(),
-            Response::HTTP_OK
-        );
     }
 
     #[Route('/{id}', name: 'houses_delete', methods: ['DELETE'])]
     public function deleteHouse(int $id): JsonResponse
     {
-        $house = $this->housesRepository->findHouseById($id);
+        $result = $this->housesService->deleteHouse($id);
 
-        if (!$house) {
+        if ($result === HousesMessages::NOT_FOUND) {
             return new JsonResponse(
                 HousesMessages::notFound(),
                 Response::HTTP_NOT_FOUND
             );
         }
 
-        if (!$house->isAvailable()) {
+        if ($result === HousesMessages::BOOKED) {
             return new JsonResponse(
                 HousesMessages::booked(),
                 Response::HTTP_BAD_REQUEST
             );
         }
 
-        $this->housesRepository->deleteHouseById($id);
         return new JsonResponse(
             HousesMessages::deleted(),
             Response::HTTP_OK
@@ -197,11 +159,31 @@ class HousesController extends AbstractController
         }
 
         try {
-            return $this->serializer->deserialize(
-                $request->getContent(),
+            $data = array_filter(
+                json_decode(
+                    $request->getContent(),
+                    true
+                ),
+                fn ($value) => $value !== null
+            );
+
+            $house = $this->serializer->deserialize(
+                json_encode($data),
                 House::class,
                 'json'
             );
+
+            if (isset($data['city_id'])) {
+                $result = $this->citiesService->findCityById(
+                    (int) $data['city_id']
+                );
+
+                if ($result['city']) {
+                    $house->setCity($result['city']);
+                }
+            }
+
+            return $house;
         } catch (NotEncodableValueException | UnexpectedValueException $e) {
             return new JsonResponse(
                 HousesMessages::buildMessage(

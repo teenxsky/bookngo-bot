@@ -22,3 +22,9 @@ services:
 
   # add more service definitions when explicit configuration is needed
   # please note that last definitions always *replace* previous ones
+
+  App\Command\LoadStorageDataCommand:
+    arguments:
+      $countriesFilePath: "%kernel.project_dir%/src/Entity/Data/countries.csv"
+      $citiesFilePath: "%kernel.project_dir%/src/Entity/Data/cities.csv"
+      $housesFilePath: "%kernel.project_dir%/src/Entity/Data/houses.csv"

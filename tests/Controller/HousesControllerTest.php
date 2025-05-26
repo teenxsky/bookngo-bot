@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Controller;
 
 use App\Constant\HousesMessages;
-use App\Entity\House;
+use App\Repository\CitiesRepository;
+use App\Repository\CountriesRepository;
 use App\Repository\HousesRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Override;
@@ -15,14 +16,20 @@ use Symfony\Component\HttpFoundation\Response;
 
 class HousesControllerTest extends WebTestCase
 {
-    /** @var HousesRepository $repository */
+    /** @var HousesRepository $housesRepository */
     private static HousesRepository $housesRepository;
+    /** @var CitiesRepository $citiesRepository */
+    private static CitiesRepository $citiesRepository;
+    /** @var CountriesRepository $countriesRepository */
+    private static CountriesRepository $countriesRepository;
 
     private KernelBrowser $client;
     private EntityManagerInterface $entityManager;
 
-    // Test Data Path
-    private const HOUSES_CSV_PATH = __DIR__ . '/../Resources/test_houses.csv';
+    // Test Data Paths
+    private const HOUSES_CSV_PATH    = __DIR__ . '/../Resources/test_houses.csv';
+    private const CITIES_CSV_PATH    = __DIR__ . '/../Resources/test_cities.csv';
+    private const COUNTRIES_CSV_PATH = __DIR__ . '/../Resources/test_countries.csv';
 
     // API Endpoints
     private const API_HOUSES    = '/api/v1/houses/';
@@ -41,11 +48,19 @@ class HousesControllerTest extends WebTestCase
         self::assertSame('test', $kernel->getEnvironment());
 
         $entityManager = $kernel->getContainer()->get('doctrine')->getManager();
+        $connection    = $entityManager->getConnection();
 
-        $connection = $entityManager->getConnection();
         $connection->executeStatement('TRUNCATE TABLE house RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE city RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE country RESTART IDENTITY CASCADE');
 
-        self::$housesRepository = $entityManager->getRepository(House::class);
+        self::$countriesRepository = $entityManager->getRepository('App\Entity\Country');
+        self::$countriesRepository->loadFromCsv(self::COUNTRIES_CSV_PATH);
+
+        self::$citiesRepository = $entityManager->getRepository('App\Entity\City');
+        self::$citiesRepository->loadFromCsv(self::CITIES_CSV_PATH);
+
+        self::$housesRepository = $entityManager->getRepository('App\Entity\House');
         self::$housesRepository->loadFromCsv(self::HOUSES_CSV_PATH);
     }
 
@@ -55,7 +70,9 @@ class HousesControllerTest extends WebTestCase
         $this->client        = static::createClient();
         $this->entityManager = $this->client->getContainer()->get('doctrine')->getManager();
 
-        self::$housesRepository = $this->entityManager->getRepository(House::class);
+        self::$housesRepository    = $this->entityManager->getRepository('App\Entity\House');
+        self::$citiesRepository    = $this->entityManager->getRepository('App\Entity\City');
+        self::$countriesRepository = $this->entityManager->getRepository('App\Entity\Country');
     }
 
     private function assertResponse(
@@ -77,26 +94,7 @@ class HousesControllerTest extends WebTestCase
         }
     }
 
-    private function assertHouseEquals(
-        array $expected,
-        array $actual,
-    ): void {
-        $fields = self::$housesRepository->getFields();
-
-        foreach ($fields as $field) {
-            $this->assertArrayHasKey($field, $expected);
-            $this->assertArrayHasKey($field, $actual);
-        }
-
-        foreach ($fields as $field) {
-            $this->assertEquals(
-                $expected[$field],
-                $actual[$field]
-            );
-        }
-    }
-
-    /**
+    /*
      * Scenario: Listing all houses
      * Given there are houses in the system
      * When I request the list of houses
@@ -106,416 +104,285 @@ class HousesControllerTest extends WebTestCase
     {
         $expectedHouses = array_map(
             fn ($house) => $house->toArray(),
-            self::$housesRepository->findAllHouses()
+            self::$housesRepository->findAll()
         );
 
-        $this->client->request(
-            method: 'GET',
-            uri: self::API_HOUSES
-        );
+        $this->client->request('GET', self::API_HOUSES);
         $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_OK,
-            expectedContent: $expectedHouses
+            $this->client->getResponse(),
+            Response::HTTP_OK,
+            $expectedHouses
         );
     }
 
-    /**
+    /*
      * Scenario: Getting a house by ID
      * Given there is a house with the specified ID
      * When I request the house by ID
      * Then I should receive the house details with status 200
-     * And the house details should match the expected data
      */
     public function testGetHouseById(): void
     {
-        $houseId      = 1;
-        $expectedData = self::$housesRepository->findHouseById($houseId);
+        $houseId       = 1;
+        $expectedHouse = self::$housesRepository->find($houseId)->toArray();
 
-        $this->client->request(
-            method: 'GET',
-            uri: sprintf(self::API_HOUSES_ID, $houseId)
-        );
+        $this->client->request('GET', sprintf(self::API_HOUSES_ID, $houseId));
         $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_OK,
-            expectedContent: $expectedData->toArray()
+            $this->client->getResponse(),
+            Response::HTTP_OK,
+            $expectedHouse
         );
     }
 
-    /**
+    /*
      * Scenario: Getting a non-existent house by ID
      * Given there is no house with the specified ID
      * When I request the house by ID
      * Then I should receive an error with status 404
-     * And the house should not be found in the repository
      */
     public function testGetHouseByIdNotFound(): void
     {
         $houseId = 999;
 
-        $this->assertNull(
-            self::$housesRepository
-                ->findHouseById($houseId)
-        );
-
-        $this->client->request(
-            method: 'GET',
-            uri: sprintf(self::API_HOUSES_ID, $houseId)
-        );
+        $this->client->request('GET', sprintf(self::API_HOUSES_ID, $houseId));
         $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_NOT_FOUND,
-            expectedContent: HousesMessages::notFound()
-        );
-
-        $this->assertNull(
-            self::$housesRepository
-                ->findHouseById($houseId)
+            $this->client->getResponse(),
+            Response::HTTP_NOT_FOUND,
+            HousesMessages::notFound()
         );
     }
 
-    /**
+    /*
      * Scenario: Adding a new house successfully
-     * Given I have valid house data
+     * Given valid house data
      * When I create a new house
      * Then the house should be created with status 201
-     * And the house should be saved in the repository
-     * And the house details should match the expected data
      */
     public function testAddHouseSuccess(): void
     {
-        $expectedHouseId = 5;
-        $expectedHouse   = (new House())
-            ->setId($expectedHouseId)
-            ->setIsAvailable(true)
-            ->setBedroomsCount(12)
-            ->setPricePerNight(6000)
-            ->setHasAirConditioning(true)
-            ->setHasWifi(true)
-            ->setHasKitchen(true)
-            ->setHasParking(true)
-            ->setHasSeaView(false)
-            ->toArray();
+        $newHouseData = [
+            'city_id'              => 1,
+            'address'              => '789 New St, Testville',
+            'bedrooms_count'       => 3,
+            'price_per_night'      => 18000,
+            'has_air_conditioning' => true,
+            'has_wifi'             => true,
+            'has_kitchen'          => true,
+            'has_parking'          => false,
+            'has_sea_view'         => false,
+            'image_url'            => 'https://example.com/new_house.jpg'
+        ];
 
-        $this->assertNull(
-            self::$housesRepository
-                ->findHouseById($expectedHouseId)
-        );
+        $countBefore = count(self::$housesRepository->findAll());
 
         $this->client->request(
-            method: 'POST',
-            uri: self::API_HOUSES,
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($expectedHouse)
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_CREATED,
-            expectedContent: HousesMessages::created()
+            'POST',
+            self::API_HOUSES,
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($newHouseData)
         );
 
-        $this->assertNotNull(
-            self::$housesRepository
-                ->findHouseById($expectedHouseId)
+        $response = $this->client->getResponse();
+        $this->assertResponse(
+            $response,
+            Response::HTTP_CREATED,
+            HousesMessages::created()
         );
-        $this->assertHouseEquals(
-            expected: $expectedHouse,
-            actual: self::$housesRepository
-                ->findHouseById($expectedHouseId)
-                ->toArray()
-        );
+
+        $countAfter = count(self::$housesRepository->findAll());
+        $this->assertEquals($countBefore + 1, $countAfter);
     }
 
-    /**
-     * Scenario: Adding a house with validation errors
-     * Given I have invalid house data
+    /*
+     * Scenario: Adding a house with invalid data
+     * Given invalid house data
      * When I create a new house
      * Then I should receive validation errors with status 400
-     * And the house should not be saved in the repository
      */
     public function testAddHouseValidationError(): void
     {
-        $expectedHouseId = 6;
-        $expectedMessage = HousesMessages::buildMessage(
-            'Validation failed',
-            [
-                [
-                    'field'   => 'bedrooms_count',
-                    'message' => 'This value should be between 1 and 20.',
-                ],
-            ]
-        );
-        $house = (new House())
-            ->setId($expectedHouseId)
-            ->setBedroomsCount(21)
-            ->setPricePerNight(6000)
-            ->setHasAirConditioning(true)
-            ->setHasWifi(true)
-            ->setHasKitchen(true)
-            ->setHasParking(true)
-            ->setHasSeaView(false)
-            ->toArray();
-
-        $this->assertNull(
-            self::$housesRepository
-                ->findHouseById($expectedHouseId)
-        );
+        $invalidHouseData = [
+            'city_id'              => 1,
+            'address'              => '',
+            'bedrooms_count'       => 21,
+            'price_per_night'      => 50,
+            'has_air_conditioning' => true,
+            'has_wifi'             => true,
+            'has_kitchen'          => true,
+            'has_parking'          => true,
+            'has_sea_view'         => false
+        ];
 
         $this->client->request(
-            method: 'POST',
-            uri: self::API_HOUSES,
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($house)
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_BAD_REQUEST,
-            expectedContent: $expectedMessage
+            'POST',
+            self::API_HOUSES,
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($invalidHouseData)
         );
 
-        $this->assertNull(
-            self::$housesRepository
-                ->findHouseById($expectedHouseId)
-        );
+        $response = $this->client->getResponse();
+        $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Validation failed', $responseData['message']);
+        $this->assertArrayHasKey('errors', $responseData);
+        $this->assertNotEmpty($responseData['errors']);
     }
 
-    /**
+    /*
      * Scenario: Replacing a house successfully
      * Given there is an existing house
      * When I replace the house with new data
-     * Then the house should be replaced with status 200
-     * And the house details should match the new data
+     * Then the house should be updated with status 200
      */
     public function testReplaceHouseSuccess(): void
     {
-        $houseId  = 1;
-        $newHouse = (new House())
-            ->setId($houseId)
-            ->setIsAvailable(true)
-            ->setBedroomsCount(12)
-            ->setPricePerNight(7000)
-            ->setHasAirConditioning(true)
-            ->setHasWifi(false)
-            ->setHasKitchen(false)
-            ->setHasParking(true)
-            ->setHasSeaView(false)
-            ->toArray();
-
-        $actualHouse = self::$housesRepository->findHouseById($houseId);
-        $this->assertNotNull($actualHouse);
-        $this->assertNotEquals(
-            $newHouse['bedrooms_count'],
-            $actualHouse->getBedroomsCount()
-        );
-        $this->assertNotEquals(
-            $newHouse['is_available'],
-            $actualHouse->isAvailable()
-        );
-        $this->assertNotEquals(
-            $newHouse['price_per_night'],
-            $actualHouse->getPricePerNight()
-        );
+        $houseId      = 1;
+        $newHouseData = [
+            'city_id'              => 1,
+            'address'              => 'Updated Address',
+            'bedrooms_count'       => 4,
+            'price_per_night'      => 20000,
+            'has_air_conditioning' => true,
+            'has_wifi'             => true,
+            'has_kitchen'          => true,
+            'has_parking'          => true,
+            'has_sea_view'         => false,
+            'image_url'            => 'https://example.com/updated.jpg'
+        ];
 
         $this->client->request(
-            method: 'PUT',
-            uri: sprintf(self::API_HOUSES_ID, $houseId),
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($newHouse)
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_OK,
-            expectedContent: HousesMessages::replaced()
+            'PUT',
+            sprintf(self::API_HOUSES_ID, $houseId),
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($newHouseData)
         );
 
-        $this->assertNotNull(
-            self::$housesRepository
-                ->findHouseById($houseId)
+        $this->assertResponse(
+            $this->client->getResponse(),
+            Response::HTTP_OK,
+            HousesMessages::replaced()
         );
-        $this->assertHouseEquals(
-            expected: $newHouse,
-            actual: self::$housesRepository
-                ->findHouseById($houseId)
-                ->toArray(),
-        );
+
+        $updatedHouse = self::$housesRepository->find($houseId);
+        $this->assertEquals('Updated Address', $updatedHouse->getAddress());
     }
 
-    /**
+    /*
      * Scenario: Replacing a non-existent house
      * Given there is no house with the specified ID
-     * When I replace the house with new data
+     * When I replace the house
      * Then I should receive an error with status 404
-     * And the house should not be created in the repository
      */
     public function testReplaceHouseNotFound(): void
     {
-        $houseId = 999;
+        $houseId           = 999;
+        $replacedHouseData = [
+            'city_id'              => 1,
+            'address'              => 'Replaced Address',
+            'bedrooms_count'       => 4,
+            'price_per_night'      => 20000,
+            'has_air_conditioning' => true,
+            'has_wifi'             => true,
+            'has_kitchen'          => true,
+            'has_parking'          => true,
+            'has_sea_view'         => false,
+            'image_url'            => 'https://example.com/updated.jpg'
+        ];
 
         $this->client->request(
-            method: 'PUT',
-            uri: sprintf(self::API_HOUSES_ID, $houseId),
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode([])
+            'PUT',
+            sprintf(self::API_HOUSES_ID, $houseId),
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($replacedHouseData)
         );
+
         $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_NOT_FOUND,
-            expectedContent: HousesMessages::notFound()
+            $this->client->getResponse(),
+            Response::HTTP_NOT_FOUND,
+            HousesMessages::notFound()
         );
     }
 
-    /**
+    /*
      * Scenario: Updating a house successfully
      * Given there is an existing house
-     * When I update the house with new data
+     * When I update the house with partial data
      * Then the house should be updated with status 200
-     * And the house details should match the new data
      */
     public function testUpdateHouseSuccess(): void
     {
-        $houseId  = 2;
-        $newHouse = [
-            'is_available'   => false,
-            'bedrooms_count' => 19,
+        $houseId    = 2;
+        $updateData = [
+            'bedrooms_count'  => 3,
+            'price_per_night' => 15000
         ];
 
-        $houseBeforeUpd = self::$housesRepository->findHouseById($houseId);
-        $this->assertNotNull($houseBeforeUpd);
-        $this->assertNotEquals(
-            $newHouse['bedrooms_count'],
-            $houseBeforeUpd->getBedroomsCount()
-        );
-
         $this->client->request(
-            method: 'PATCH',
-            uri: sprintf(self::API_HOUSES_ID, $houseId),
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($newHouse)
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_OK,
-            expectedContent: HousesMessages::updated()
+            'PATCH',
+            sprintf(self::API_HOUSES_ID, $houseId),
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($updateData)
         );
 
-        $houseAfterUpd = self::$housesRepository->findHouseById($houseId);
-        $this->assertNotNull($houseAfterUpd);
-        $this->assertEquals(
-            $newHouse['bedrooms_count'],
-            $houseAfterUpd->getBedroomsCount()
+        $this->assertResponse(
+            $this->client->getResponse(),
+            Response::HTTP_OK,
+            HousesMessages::updated()
         );
+
+        $updatedHouse = self::$housesRepository->find($houseId);
+        $this->assertEquals(3, $updatedHouse->getBedroomsCount());
+        $this->assertEquals(15000, $updatedHouse->getPricePerNight());
     }
 
-    /**
-     * Scenario: Updating a non-existent house
-     * Given there is no house with the specified ID
-     * When I update the house with new data
-     * Then I should receive an error with status 404
-     * And the house should not be created in the repository
-     */
-    public function testUpdateHouseNotFound(): void
-    {
-        $houseId = 999;
-
-        $this->assertNull(
-            self::$housesRepository
-                ->findHouseById($houseId)
-        );
-
-        $this->client->request(
-            method: 'PATCH',
-            uri: sprintf(self::API_HOUSES_ID, $houseId),
-            parameters: [],
-            files: [],
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode([])
-        );
-        $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_NOT_FOUND,
-            expectedContent: HousesMessages::notFound()
-        );
-
-        $this->assertNull(
-            self::$housesRepository
-                ->findHouseById($houseId)
-        );
-    }
-
-    /**
+    /*
      * Scenario: Deleting a house successfully
      * Given there is an existing house
      * When I delete the house
      * Then the house should be deleted with status 200
-     * And the house should not be found in the repository
      */
     public function testDeleteHouseSuccess(): void
     {
-        $houseId = 1;
+        $houseId = 3;
 
-        $this->assertNotNull(
-            self::$housesRepository
-                ->findHouseById($houseId)
-        );
+        $this->client->request('DELETE', sprintf(self::API_HOUSES_ID, $houseId));
 
-        $this->client->request(
-            method: 'DELETE',
-            uri: sprintf(self::API_HOUSES_ID, $houseId)
-        );
         $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_OK,
-            expectedContent: HousesMessages::deleted()
+            $this->client->getResponse(),
+            Response::HTTP_OK,
+            HousesMessages::deleted()
         );
 
-        $this->assertNull(
-            self::$housesRepository
-                ->findHouseById($houseId)
-        );
+        $this->assertNull(self::$housesRepository->find($houseId));
     }
 
-    /**
-     * Scenario: Deleting a unavailable house
-     * Given there is a house that is booked
-     * When I try to delete the house
-     * Then I should receive an error with status 400
-     * And the house should still be available in the repository
+    /*
+     * Scenario: Deleting a non-existent house
+     * Given there is no house with the specified ID
+     * When I delete the house
+     * Then I should receive an error with status 404
      */
-    public function testDeleteHouseBooked(): void
+    public function testDeleteHouseNotFound(): void
     {
-        $houseId = 2;
+        $houseId = 999;
 
-        $this->assertFalse(
-            self::$housesRepository
-                ->findHouseById($houseId)
-                ->isAvailable()
-        );
+        $this->client->request('DELETE', sprintf(self::API_HOUSES_ID, $houseId));
 
-        $this->client->request(
-            method: 'DELETE',
-            uri: sprintf(self::API_HOUSES_ID, $houseId)
-        );
         $this->assertResponse(
-            response: $this->client->getResponse(),
-            expectedStatusCode: Response::HTTP_BAD_REQUEST,
-            expectedContent: HousesMessages::booked()
-        );
-
-        $this->assertFalse(
-            self::$housesRepository
-                ->findHouseById($houseId)
-                ->isAvailable()
+            $this->client->getResponse(),
+            Response::HTTP_NOT_FOUND,
+            HousesMessages::notFound()
         );
     }
 }

@@ -1,193 +1,218 @@
-# symfony-practice
+# Book&Go Telegram Bot
 
-## Usage Guide
+<p align="center">
+  <img src="https://img.shields.io/badge/PHP-8.1%2B-blue" alt="PHP Version">
+  <img src="https://img.shields.io/badge/Symfony-6.x-black" alt="Symfony Version">
+  <img src="https://img.shields.io/badge/Docker-Required-blue" alt="Docker Required">
+  <img src="https://img.shields.io/badge/PostgreSQL-Latest-blue" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/Redis-Latest-red" alt="Redis">
+</p>
 
-### Requirements:
+<p align="center">
+  <img src="https://s.iimg.su/s/20/th_K7lqKeWZsjo0vezqHCG3ia4bJw8OJcdm6w5Wj9Eb.jpg" alt="Book&Go Bot">
+</p>
 
-- Docker installed on your machine.
-- Docker Compose installed on your machine.
-- **Configure .env local files:** `.env.local`, `.env.dev.local`, `.env.test.local`:
+## 🏠 About
+
+Book&Go is a Telegram bot that simplifies the house booking process. Users can browse available properties, make reservations, and manage their bookings through a convenient Telegram interface.
+
+## ✨ Features
+
+### User Features
+
+- Browse houses by location (countries and cities)
+- Check real-time availability
+- Make and manage bookings
+- View booking history
+- Receive booking confirmations
+- Add and edit booking comments
+
+### Technical Features
+
+- Symfony 6.x framework
+- Docker containerization
+- PostgreSQL database
+- Redis session management
+- Telegram Bot API integration
+- RESTful API architecture
+
+## 🛠 Tech Stack
+
+### Backend
+
+- PHP 8.1+
+- Symfony 6.x
+- Doctrine ORM
+- PostgreSQL
+- Redis
+
+### Infrastructure
+
+- Docker
+- Nginx
+- Xdebug for development
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Make utility
+- Telegram Bot Token
+
+### Installation
+
+1. Set up environment variables:
 
 ```bash
 cp .env .env.local
-```
-
-```bash
 cp .env.dev .env.dev.local
-```
-
-```bash
 cp .env.test .env.test.local
 ```
 
----
+2. Add Telegram Bot Token:
 
-### Testing Guide
+```bash
+# .env.local
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_WEBHOOK_URL=<your_host>/api/v1/telegram/webhook
+TELEGRAM_BOT_USERNAME=your_telegram_bot_username
+TELEGRAM_ADMIN_CHAT_ID=telegram_admin_chat
+```
 
-To run tests, follow these steps:
-
-1. **Create the test database**:
-   Run the following command to create a test database:
-
-   ```bash
-   make create-test-db
-   ```
-
-2. **Generate migrations (if not already created)**:
-   If migrations are not created, generate them using:
-
-   ```bash
-   make make-migrations
-   ```
-
-3. **Apply migrations to the test database**:
-   Apply the migrations to the test database using:
-
-   ```bash
-   make migrate-test-db
-   ```
-
-4. **Run the tests**:
-   Finally, run all tests using:
-
-   ```bash
-   make run-tests
-   ```
-
-   To run only repository tests:
-
-   ```bash
-   make run-tests-repository
-   ```
-
-   To run only controller tests:
-
-   ```bash
-   make run-tests-controller
-   ```
-
----
-
-### Docker Commands
-
-#### Build the Docker Images
-
-To build the Docker images for the development environment, run:
+3. Build and start containers:
 
 ```bash
 make build
-```
-
-#### Start the Services
-
-To start the services in detached mode (running in the background), use:
-
-```bash
 make up
 ```
 
-If you want to start the services and see the logs in real-time, use:
-
-```bash
-make up-logs
-```
-
-#### Stop the Services
-
-To stop the services, run:
-
-```bash
-make down
-```
-
-#### Clean Up
-
-To stop and remove all containers, networks, volumes, and images, use:
-
-```bash
-make clean
-```
-
-To stop and remove all volumes, use:
-
-```bash
-make clean-volumes
-```
-
----
-
-### Database Commands
-
-#### Create a New Migration
-
-To create a new migration file in the backend container, run:
-
-```bash
-make make-migrations
-```
-
-#### Apply Migrations to the Database
-
-To execute the Doctrine migrations in the backend container, use:
+4. Initialize database:
 
 ```bash
 make migrate-db
 ```
 
-#### Create a Database Backup
-
-To create a database backup (dump.sql), run:
+5. Run command to set Telegram webhook:
 
 ```bash
-make create-dump
+make set-webhook
 ```
 
----
+## 🔧 Development
 
-### Accessing the Backend Container Shell
-
-To open a shell in the backend container, use:
+### Running Tests
 
 ```bash
-make shell-backend
+# Create test database
+make create-test-db
+
+# Run migrations for test database
+make migrate-test-db
+
+# Run all tests
+make run-tests
+
+# Run only repository tests
+make run-tests-repository
+
+# Run only controller tests
+make run-tests-controller
 ```
 
----
-
-### Debugging with Xdebug
-
-#### Show Xdebug Status
-
-To check the current status of Xdebug, run:
+### Debugging
 
 ```bash
-make xdebug-status
-```
-
-#### Enable Xdebug
-
-To enable Xdebug, run:
-
-```bash
+# Enable Xdebug
 make xdebug-enable
-```
 
-#### Disable Xdebug
+# Check Xdebug status
+make xdebug-status
 
-To disable Xdebug, run:
-
-```bash
+# Disable Xdebug
 make xdebug-disable
 ```
 
----
-
-### Help Command
-
-To see a list of all available `make` commands with descriptions, run:
+### Database Management
 
 ```bash
-make help
+# Create new migration
+make make-migrations
+
+# Apply migrations
+make migrate-db
+
+# Create database backup
+make create-dump
 ```
 
-This will display a categorized list of commands, including Docker Compose commands, database commands, Symfony commands, testing commands, and debugging commands.
+### Docker Commands
+
+```bash
+# Start services with logs
+make up-logs
+
+# Stop services
+make down
+
+# Clean up containers and volumes
+make clean
+
+# Clean up only volumes
+make clean-volumes
+
+# Access backend shell
+make shell-backend
+```
+
+## 🤖 Bot Commands
+
+### Basic Commands
+
+- `/start` - Display main menu
+
+### Bot Workflow
+
+1. Select country
+2. Choose city
+3. Select dates
+4. Pick available house
+5. Provide contact details
+6. Add comments (optional)
+7. Confirm booking
+
+## 🔒 Security
+
+### Features
+
+- Secure session management with Redis
+- Input validation and sanitization
+- Rate limiting for API endpoints
+- Environment-based configuration
+
+## 🧪 Testing
+
+### Test Suites
+
+- Service Tests
+
+  - BookingsServiceTest
+  - CitiesServiceTest
+  - CountriesServiceTest
+  - HousesServiceTest
+
+- Controller Tests
+  - BookingsControllerTest
+  - HousesControllerTest
+
+## 📝 License
+
+This project is proprietary software. All rights reserved.
+
+## 📮 Support
+
+For support and inquiries, please create an issue in the repository.
+
+---
+
+© 2024 Book&Go. All rights reserved.

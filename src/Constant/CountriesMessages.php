@@ -1,24 +1,22 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
 
 namespace App\Constant;
 
 /**
- * Class BookingsMessages
+ * Class CountriesMessages
  * @package App\Constant
  *
- * This class contains messages related to the Booking entity.
+ * This class contains messages related to the Country entity.
  */
-class BookingsMessages extends ApiMessages
+class CountriesMessages extends ApiMessages
 {
-    public const CREATED         = 'Booking created!';
-    public const REPLACED        = 'Booking replaced!';
-    public const UPDATED         = 'Booking updated!';
-    public const DELETED         = 'Booking deleted!';
-    public const NOT_FOUND       = 'Booking not found.';
-    public const PAST_START_DATE = 'Start date cannot be in the past';
-    public const PAST_END_DATE   = 'Start date cannot be after end date';
+    public const CREATED    = 'Country created!';
+    public const UPDATED    = 'Country updated!';
+    public const DELETED    = 'Country deleted!';
+    public const NOT_FOUND  = 'Country not found.';
+    public const HAS_CITIES = 'Cannot delete country that has cities';
 
     /**
      * @return array{message: string, errors?: array}
@@ -26,14 +24,6 @@ class BookingsMessages extends ApiMessages
     public static function created(): array
     {
         return self::buildMessage(self::CREATED);
-    }
-
-    /**
-     * @return array{message: string, errors?: array}
-     */
-    public static function replaced(): array
-    {
-        return self::buildMessage(self::REPLACED);
     }
 
     /**
@@ -58,5 +48,13 @@ class BookingsMessages extends ApiMessages
     public static function notFound(): array
     {
         return self::buildMessage(self::NOT_FOUND);
+    }
+
+    /**
+     * @return array{message: string, errors?: array}
+     */
+    public static function hasCities(): array
+    {
+        return self::buildMessage(self::HAS_CITIES);
     }
 }
