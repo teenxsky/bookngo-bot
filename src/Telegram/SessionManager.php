@@ -123,26 +123,26 @@ class SessionManager
     {
         if ($data === null) {
             return [
-                'booking_id'   => null,
-                'city_id'      => null,
-                'comment'      => null,
-                'country_id'   => null,
-                'start_date'   => null,
-                'end_date'     => null,
-                'house_id'     => null,
-                'is_actual'    => null,
+                'booking_id' => null,
+                'city_id'    => null,
+                'comment'    => null,
+                'country_id' => null,
+                'start_date' => null,
+                'end_date'   => null,
+                'house_id'   => null,
+                'is_actual'  => null,
             ];
         }
 
         return [
-            'booking_id'   => isset($data['booking_id']) ? (int)$data['booking_id'] : null,
-            'city_id'      => isset($data['city_id']) ? (int)$data['city_id'] : null,
-            'comment'      => isset($data['comment']) ? (string)$data['comment'] : null,
-            'country_id'   => isset($data['country_id']) ? (int)$data['country_id'] : null,
-            'start_date'   => isset($data['start_date']) ? (string)$data['start_date'] : null,
-            'end_date'     => isset($data['end_date']) ? (string)$data['end_date'] : null,
-            'house_id'     => isset($data['house_id']) ? (int)$data['house_id'] : null,
-            'is_actual'    => isset($data['is_actual']) ? (int)$data['is_actual'] : null,
+            'booking_id' => isset($data['booking_id']) ? (int)$data['booking_id'] : null,
+            'city_id'    => isset($data['city_id']) ? (int)$data['city_id'] : null,
+            'comment'    => isset($data['comment']) ? (string)$data['comment'] : null,
+            'country_id' => isset($data['country_id']) ? (int)$data['country_id'] : null,
+            'start_date' => isset($data['start_date']) ? (string)$data['start_date'] : null,
+            'end_date'   => isset($data['end_date']) ? (string)$data['end_date'] : null,
+            'house_id'   => isset($data['house_id']) ? (int)$data['house_id'] : null,
+            'is_actual'  => isset($data['is_actual']) ? (int)$data['is_actual'] : null,
         ];
     }
 

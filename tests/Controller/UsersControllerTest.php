@@ -61,8 +61,8 @@ class UsersControllerTest extends WebTestCase
 
         // Initialize the entity manager
         $entityManager = self::$client->getContainer()
-          ->get('doctrine')
-          ->getManager();
+            ->get('doctrine')
+            ->getManager();
 
         // Clear all tables
         $connection = $entityManager->getConnection();
@@ -108,8 +108,8 @@ class UsersControllerTest extends WebTestCase
         self::$client->getKernel()->boot();
 
         $this->entityManager = self::$client->getContainer()
-          ->get('doctrine')
-          ->getManager();
+            ->get('doctrine')
+            ->getManager();
         self::$usersRepository = $this->entityManager->getRepository(
             User::class
         );

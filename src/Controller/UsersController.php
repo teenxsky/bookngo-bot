@@ -125,7 +125,16 @@ class UsersController extends AbstractController
             );
         }
 
-        $this->usersService->logout($data['refresh_token']);
+        $error = $this->usersService->logout($data['refresh_token']);
+        if ($error) {
+            return new JsonResponse(
+                UsersMessages::logoutFailed(
+                    [$error]
+                ),
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
         return new JsonResponse(
             UsersMessages::logout(),
             Response::HTTP_OK

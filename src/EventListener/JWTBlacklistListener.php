@@ -8,6 +8,9 @@ use App\Service\UsersService;
 use Lexik\Bundle\JWTAuthenticationBundle\Event\JWTAuthenticatedEvent;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
+/**
+ * @psalm-suppress UnusedClass
+ */
 class JWTBlacklistListener
 {
     public function __construct(
@@ -15,7 +18,7 @@ class JWTBlacklistListener
     ) {
     }
 
-    public function onJWTDecoded(JWTAuthenticatedEvent $event): void
+    public function onJwtDecoded(JWTAuthenticatedEvent $event): void
     {
         $payload = $event->getPayload();
 

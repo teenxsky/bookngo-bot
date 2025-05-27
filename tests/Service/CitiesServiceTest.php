@@ -36,9 +36,15 @@ class CitiesServiceTest extends KernelTestCase
         $kernel = self::bootKernel();
         $this->assertSame('test', $kernel->getEnvironment());
 
-        $this->entityManager       = static::getContainer()->get('doctrine')->getManager();
-        $this->citiesRepository    = $this->entityManager->getRepository(City::class);
-        $this->countriesRepository = $this->entityManager->getRepository(Country::class);
+        $this->entityManager = static::getContainer()
+            ->get('doctrine')
+            ->getManager();
+        $this->citiesRepository = $this->entityManager->getRepository(
+            City::class
+        );
+        $this->countriesRepository = $this->entityManager->getRepository(
+            Country::class
+        );
 
         $this->citiesService = new CitiesService(
             $this->citiesRepository

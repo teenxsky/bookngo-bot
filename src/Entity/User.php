@@ -6,6 +6,7 @@ namespace App\Entity;
 
 use App\Repository\UsersRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Override;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -89,6 +90,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @psalm-suppress PossiblyUnusedMethod
+     */
     public function setTokenVersion(int $tokenVersion): static
     {
         $this->tokenVersion = $tokenVersion;
@@ -135,6 +139,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @see UserInterface
      */
+    #[Override]
     public function getUserIdentifier(): string
     {
         return (string) $this->phoneNumber;
@@ -144,6 +149,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * @see UserInterface
      * @return list<string>
      */
+    #[Override]
     public function getRoles(): array
     {
         $roles   = $this->roles;
@@ -165,6 +171,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /**
      * @see PasswordAuthenticatedUserInterface
      */
+    #[Override]
     public function getPassword(): ?string
     {
         return $this->password;
@@ -180,20 +187,24 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /**
      * @see UserInterface
      */
+    #[Override]
     public function eraseCredentials(): void
     {
         // If you store any temporary, sensitive data on the user, clear it here
         // $this->plainPassword = null;
     }
 
+    /**
+     * @return array{id: int|null, phone_number: string|null, roles: array, telegram_chat_id: int|null, telegram_user_id: int|null, telegram_username: string|null}
+     */
     public function toArray(): array
     {
         return [
-            'id'               => $this->id,
+            'id'                => $this->id,
             'phone_number'      => $this->phoneNumber,
-            'roles'            => $this->roles,
-            'telegram_chat_id'   => $this->telegramChatId,
-            'telegram_user_id'   => $this->telegramUserId,
+            'roles'             => $this->roles,
+            'telegram_chat_id'  => $this->telegramChatId,
+            'telegram_user_id'  => $this->telegramUserId,
             'telegram_username' => $this->telegramUsername,
         ];
     }

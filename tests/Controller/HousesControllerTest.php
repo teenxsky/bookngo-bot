@@ -103,7 +103,7 @@ class HousesControllerTest extends WebTestCase
                 RefreshTokenManagerInterface::class
             )
         );
-        
+
         // Register test user
         $usersService->registerApiUser(
             self::ADMIN_PHONE_NUMBER,

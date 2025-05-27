@@ -95,11 +95,21 @@ class BookingsServiceTest extends KernelTestCase
     private function truncateTables(): void
     {
         $connection = $this->entityManager->getConnection();
-        $connection->executeStatement('TRUNCATE TABLE bookings RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE houses RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE cities RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE countries RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
+        $connection->executeStatement(
+            'TRUNCATE TABLE bookings RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE houses RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE cities RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE countries RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE users RESTART IDENTITY CASCADE'
+        );
     }
 
     private function createTestData(): void

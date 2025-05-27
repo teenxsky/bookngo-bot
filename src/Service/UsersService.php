@@ -108,7 +108,7 @@ class UsersService
     /**
      * @param string $phoneNumber
      * @param string $password
-     * @return array{tokens:array{access_token:string,refresh_token:string}|null,error:string}
+     * @return array{tokens:array{access_token:string,refresh_token:string}|null,error:string|null}
      */
     public function loginApiUser(
         string $phoneNumber,
@@ -138,6 +138,10 @@ class UsersService
         ];
     }
 
+    /**
+     * @param string $accessToken
+     * @return string|null
+     */
     public function logout(string $accessToken): ?string
     {
         $refreshToken = $this->refreshTokenManager->get($accessToken);
@@ -161,7 +165,7 @@ class UsersService
 
     /**
      * @param string $refreshToken
-     * @return array{tokens:array{access_token:string,refresh_token:string}|null,error:string}
+     * @return array{tokens:array{access_token:string,refresh_token:string}|null,error:string|null}
      */
     public function refresh(string $refreshToken): array
     {
@@ -198,7 +202,7 @@ class UsersService
      * @param User $user
      * @return array{access_token: string, refresh_token: string|null}
      */
-    private function generateTokens(User $user): array
+    public function generateTokens(User $user): array
     {
         $user->incrementTokenVersion();
         $this->usersRepository->updateUser($user);

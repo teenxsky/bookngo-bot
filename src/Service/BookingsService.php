@@ -273,8 +273,8 @@ class BookingsService
     }
 
     /**
-     * @param array $criteria
-     * @param bool|null $isActual
+     * @param int $userId
+     * @param mixed $isActual
      * @return Booking[]
      */
     public function findBookingsByUserId(

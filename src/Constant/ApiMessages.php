@@ -31,7 +31,7 @@ class ApiMessages
 
     /**
      * @param array $errors
-     * @return array{errors: array, message: string}
+     * @return array{message:string,errors?:array}
      */
     public static function validationFailed(array $errors): array
     {
@@ -43,7 +43,7 @@ class ApiMessages
 
     /**
      * @param array $errors
-     * @return array{errors: array, message: string}
+     * @return array{message:string,errors?:array}
      */
     public static function deserializationFailed(array $errors): array
     {

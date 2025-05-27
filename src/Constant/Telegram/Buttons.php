@@ -74,18 +74,6 @@ class Buttons
      * @param string $callback
      * @return array{callback_data: string, text: string}
      */
-    public static function editPhoneNumber(string $callback): array
-    {
-        return self::buildButton(
-            '✏️ Edit Phone Number',
-            $callback
-        );
-    }
-
-    /**
-     * @param string $callback
-     * @return array{callback_data: string, text: string}
-     */
     public static function deleteBooking(string $callback): array
     {
         return self::buildButton(

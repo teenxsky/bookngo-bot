@@ -11,11 +11,11 @@ final class WorkflowStateManager
     public const START     = '/start';
     public const MAIN_MENU = 'main_menu';
 
-    public const BOOKINGS_MENU     = 'bookings_menu';
-    public const BOOKINGS_LIST     = 'bookings_list';
-    public const BOOKING_INFO      = 'booking_info';
-    public const EDIT_COMMENT      = 'edit_comment';
-    public const DELETE_BOOKING    = 'delete_booking';
+    public const BOOKINGS_MENU  = 'bookings_menu';
+    public const BOOKINGS_LIST  = 'bookings_list';
+    public const BOOKING_INFO   = 'booking_info';
+    public const EDIT_COMMENT   = 'edit_comment';
+    public const DELETE_BOOKING = 'delete_booking';
 
     public const NEW_BOOKING     = 'new_booking';
     public const CITIES          = 'cities';

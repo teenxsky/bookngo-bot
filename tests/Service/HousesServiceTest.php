@@ -34,9 +34,15 @@ class HousesServiceTest extends KernelTestCase
         $kernel = self::bootKernel();
         $this->assertSame('test', $kernel->getEnvironment());
 
-        $this->entityManager    = static::getContainer()->get('doctrine')->getManager();
-        $this->housesRepository = $this->entityManager->getRepository(House::class);
-        $this->housesService    = new HousesService($this->housesRepository);
+        $this->entityManager = static::getContainer()
+            ->get('doctrine')
+            ->getManager();
+        $this->housesRepository = $this->entityManager->getRepository(
+            House::class
+        );
+        $this->housesService = new HousesService(
+            $this->housesRepository
+        );
 
         $this->truncateTables();
         $this->createTestData();
@@ -45,9 +51,15 @@ class HousesServiceTest extends KernelTestCase
     private function truncateTables(): void
     {
         $connection = $this->entityManager->getConnection();
-        $connection->executeStatement('TRUNCATE TABLE houses RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE cities RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE countries RESTART IDENTITY CASCADE');
+        $connection->executeStatement(
+            'TRUNCATE TABLE houses RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE cities RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE countries RESTART IDENTITY CASCADE'
+        );
     }
 
     private function createTestData(): void

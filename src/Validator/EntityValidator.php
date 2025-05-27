@@ -17,8 +17,7 @@ class EntityValidator
 
     /**
      * @param object $entity
-     * @param string $errorMessage
-     * @return array|null
+     * @return array{field: string, message: string[]|null}
      */
     public function validate(object $entity): ?array
     {
@@ -44,7 +43,7 @@ class EntityValidator
                 'field' => (new UnicodeString(
                     $error->getPropertyPath()
                 ))->snake()->toString(),
-                'message' => $error->getMessage(),
+                'message' => (string) $error->getMessage(),
             ];
         }
 

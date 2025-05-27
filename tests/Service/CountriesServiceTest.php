@@ -28,8 +28,12 @@ class CountriesServiceTest extends KernelTestCase
         $kernel = self::bootKernel();
         $this->assertSame('test', $kernel->getEnvironment());
 
-        $this->entityManager     = static::getContainer()->get('doctrine')->getManager();
-        $this->countryRepository = $this->entityManager->getRepository(Country::class);
+        $this->entityManager = static::getContainer()
+            ->get('doctrine')
+            ->getManager();
+        $this->countryRepository = $this->entityManager->getRepository(
+            Country::class
+        );
 
         $this->countryService = new CountriesService(
             $this->countryRepository
@@ -42,8 +46,12 @@ class CountriesServiceTest extends KernelTestCase
     private function truncateTables(): void
     {
         $connection = $this->entityManager->getConnection();
-        $connection->executeStatement('TRUNCATE TABLE countries RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE cities RESTART IDENTITY CASCADE');
+        $connection->executeStatement(
+            'TRUNCATE TABLE countries RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE cities RESTART IDENTITY CASCADE'
+        );
     }
 
     private function createTestData(): void

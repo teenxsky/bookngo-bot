@@ -52,7 +52,7 @@ class UsersMessages extends ApiMessages
     }
 
     /**
-     * @return array|array{errors: array, message: string, tokens: array{access_token: string, refresh_token: string}}
+     * @return array{message:string,errors?:array}
      */
     public static function register(): array
     {
@@ -64,7 +64,7 @@ class UsersMessages extends ApiMessages
     /**
      * @param string $accessToken
      * @param string $refreshToken
-     * @return array|array{errors: array, message: string, tokens: array{access_token: string, refresh_token: string}}
+     * @return array[]|array{errors: array, message: string, tokens: array{access_token:string,refresh_token:string}}
      */
     public static function login(string $accessToken, string $refreshToken): array
     {
@@ -78,7 +78,7 @@ class UsersMessages extends ApiMessages
     /**
      * @param string $accessToken
      * @param string $refreshToken
-     * @return array|array{errors: array, message: string, tokens: array{access_token: string, refresh_token: string}}
+     * @return array{message:string,errors?:array}
      */
     public static function refresh(string $accessToken, string $refreshToken): array
     {
@@ -90,7 +90,7 @@ class UsersMessages extends ApiMessages
     }
 
     /**
-     * @return array|array{errors: array, message: string}
+     * @return array{message:string,errors?:array}
      */
     public static function logout(): array
     {
@@ -101,7 +101,7 @@ class UsersMessages extends ApiMessages
 
     /**
      * @param array $errors
-     * @return array{errors: array, message: string}
+     * @return array{message:string,errors?:array}
      */
     public static function registrationFailed(array $errors): array
     {
@@ -113,7 +113,7 @@ class UsersMessages extends ApiMessages
 
     /**
      * @param array $errors
-     * @return array{errors: array, message: string}
+     * @return array{message:string,errors?:array}
      */
     public static function loginFailed(array $errors): array
     {
@@ -125,7 +125,7 @@ class UsersMessages extends ApiMessages
 
     /**
      * @param array $errors
-     * @return array{errors: array, message: string}
+     * @return array{message:string,errors?:array}
      */
     public static function logoutFailed(array $errors): array
     {
@@ -137,7 +137,7 @@ class UsersMessages extends ApiMessages
 
     /**
      * @param array $errors
-     * @return array{errors: array, message: string}
+     * @return array{message:string,errors?:array}
      */
     public static function refreshFailed(array $errors): array
     {
@@ -148,7 +148,7 @@ class UsersMessages extends ApiMessages
     }
 
     /**
-     * @return array{errors: array, message: string}
+     * @return array{message:string,errors?:array}
      */
     public static function notFound(): array
     {

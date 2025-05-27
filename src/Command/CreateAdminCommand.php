@@ -15,6 +15,9 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+/**
+ * @psalm-suppress UnusedClass
+ */
 #[AsCommand(
     name: 'app:create-admin',
     description: 'Creates a new admin user'
@@ -51,7 +54,7 @@ class CreateAdminCommand extends Command
                 ->setPassword($password);
             $error = $this->entityValidator->validate($user);
             if ($error) {
-                $io->error($error[0]);
+                $io->error($error['field'] . ': ' . ($error['message'] ?? ''));
                 return Command::FAILURE;
             }
 
