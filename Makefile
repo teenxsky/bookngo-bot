@@ -93,6 +93,9 @@ shell-backend:
 set-webhook:
 	$(DOCKER_COMPOSE) exec backend bash -c "bin/console app:set-webhook"
 
+generate-jwt-keypair:
+	$(DOCKER_COMPOSE) exec backend bash -c "bin/console lexik:jwt:generate-keypair"
+
 # Creates a new admin user
 create-admin:
 	$(DOCKER_COMPOSE) exec backend bash -c "bin/console app:create-admin"
@@ -213,6 +216,7 @@ help:
 	@echo "  \033[1;36mshell-backend\033[0m        - Open backend container shell"
 	@echo "  \033[1;36mset-webhook\033[0m          - Set webhook for telegram"
 	@echo "  \033[1;36mcreate-admin\033[0m         - Create a new admin user"
+	@echo "  \033[1;36mgenerate-jwt-keypair\033[0m - Generate JWT keypair"
 	@echo "  \033[1;33m------------------------\033[0m"
 	@echo "  \033[1;32mLinting commands:\033[0m"
 	@echo "  \033[1;36mrun-lint\033[0m             - Run all php linters"
