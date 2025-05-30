@@ -14,6 +14,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  * @psalm-suppress all
  */
 #[ORM\Entity(repositoryClass: CountriesRepository::class)]
+#[ORM\Table(name: 'countries')]
 class Country
 {
     #[ORM\Id]

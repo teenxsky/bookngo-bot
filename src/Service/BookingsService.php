@@ -6,6 +6,7 @@ namespace App\Service;
 
 use App\Constant\BookingsMessages;
 use App\Constant\HousesMessages;
+use App\Constant\UsersMessages;
 use App\Entity\Booking;
 use App\Entity\House;
 use App\Repository\BookingsRepository;
@@ -16,64 +17,96 @@ class BookingsService
 {
     public function __construct(
         private BookingsRepository $bookingsRepo,
-        private HousesService $housesService
+        private HousesService $housesService,
+        private UsersService $usersService
     ) {
     }
 
-    /**
-     * @param int $houseId
-     * @param string $phoneNumber
-     * @param string|null $comment
-     * @param DateTimeInterface $startDate
-     * @param DateTimeInterface $endDate
-     * @param int $telegramChatId
-     * @param int $telegramUserId
-     * @param string $telegramUsername
-     * @return string|null
-     */
+    public function validateBookingCreation(
+        int $houseId,
+        ?string $phoneNumber,
+        DateTimeInterface $startDate,
+        DateTimeInterface $endDate,
+        ?string $telegramUsername = null,
+        bool $isTelegramUser = false
+    ): ?string {
+        if (!$isTelegramUser) {
+            $user = $this->usersService->findUserByPhoneNumber($phoneNumber);
+            if (!$user) {
+                return UsersMessages::NOT_FOUND;
+            }
+        } else {
+            $user = $this->usersService->findUserByTelegramUsername($telegramUsername);
+            if (!$user && !$telegramUsername) {
+                return UsersMessages::NOT_FOUND;
+            }
+        }
+
+        $house = $this->housesService->findHouseById($houseId);
+        if (!$house) {
+            return HousesMessages::NOT_FOUND;
+        }
+
+        $datesValidationError = $this->validateBookingDates($startDate, $endDate);
+        if ($datesValidationError) {
+            return $datesValidationError;
+        }
+
+        $availabilityError = $this->validateHouseAvailability($house, $startDate, $endDate);
+        if ($availabilityError) {
+            return $availabilityError;
+        }
+
+        return null;
+    }
+
     public function createBooking(
         int $houseId,
-        string $phoneNumber,
+        ?string $phoneNumber,
         ?string $comment,
         DateTimeInterface $startDate,
         DateTimeInterface $endDate,
-        ?int $telegramChatId,
-        ?int $telegramUserId,
-        ?string $telegramUsername
+        ?int $telegramChatId = null,
+        ?int $telegramUserId = null,
+        ?string $telegramUsername = null,
+        bool $isTelegramUser = false
     ): ?string {
-        $result = $this->housesService->findHouseById($houseId);
-        if ($result['error'] !== null) {
-            return $result['error'];
-        }
-        $house = $result['house'];
-
-        $error = $this->validateBookingDates(
+        $validationError = $this->validateBookingCreation(
+            $houseId,
+            $phoneNumber,
             $startDate,
-            $endDate
+            $endDate,
+            $telegramUsername,
+            $isTelegramUser
         );
-        if ($error !== null) {
-            return $error;
+
+        if ($validationError) {
+            return $validationError;
         }
 
-        $error = $this->validateHouseAvailability(
-            $house,
-            $startDate,
-            $endDate
-        );
-        if ($error !== null) {
-            return $error;
+        if ($isTelegramUser) {
+            if (!$this->usersService->findUserByTelegramUsername($telegramUsername)) {
+                $this->usersService->registerTelegramUser(
+                    $telegramChatId,
+                    $telegramUserId,
+                    $telegramUsername
+                );
+            }
+
+            $user = $this->usersService->findUserByTelegramUsername($telegramUsername);
+        } else {
+            $user = $this->usersService->findUserByPhoneNumber($phoneNumber);
         }
+
+        $house = $this->housesService->findHouseById($houseId);
 
         $booking = new Booking();
         $booking
             ->setHouse($house)
-            ->setPhoneNumber($phoneNumber)
+            ->setUser($user)
             ->setComment($comment)
             ->setStartDate($startDate)
-            ->setEndDate($endDate)
-            ->setTelegramChatId($telegramChatId)
-            ->setTelegramUserId($telegramUserId)
-            ->setTelegramUsername($telegramUsername);
+            ->setEndDate($endDate);
 
         $this->bookingsRepo->addBooking($booking);
 
@@ -141,50 +174,73 @@ class BookingsService
     }
 
     /**
-     * @return array{booking:Booking|null,error:string|null}
+     * @param Booking $replacingBooking
+     * @param int $id
+     * @return string|null
      */
-    public function replaceBooking(Booking $replacingBooking, int $id): array
+    public function validateBookingReplacement(Booking $replacingBooking, int $id): ?string
     {
         $existingBooking = $this->bookingsRepo->findBookingById($id);
         if (!$existingBooking) {
-            return [
-                'booking' => null,
-                'error'   => BookingsMessages::NOT_FOUND
-            ];
+            return BookingsMessages::NOT_FOUND;
         }
 
-        $replacingBooking->setId($id);
-        $error = $this->switchHouse($existingBooking, $replacingBooking);
-        if ($error !== null) {
-            return [
-                'booking' => null,
-                'error'   => $error
-            ];
+        $houseSwitchError = $this->switchHouse($existingBooking, $replacingBooking);
+        if ($houseSwitchError) {
+            return $houseSwitchError;
         }
 
-        $this->bookingsRepo->updateBooking($replacingBooking);
-        return [
-            'booking' => $replacingBooking,
-            'error'   => null
-        ];
+        return null;
     }
 
     /**
-     * @return array{booking:Booking|null,error:string|null}
+     * @param Booking $replacingBooking
+     * @param int $id
+     * @return Booking
      */
-    public function updateBooking(Booking $updatedBooking, int $id): array
+    public function replaceBooking(Booking $replacingBooking, int $id): Booking
+    {
+        $replacingBooking->setId($id);
+        $this->bookingsRepo->updateBooking($replacingBooking);
+        return $replacingBooking;
+    }
+
+    /**
+     * @param Booking $updatedBooking
+     * @param int $id
+     * @return string|null
+     */
+    public function validateBookingUpdate(Booking $updatedBooking, int $id): ?string
     {
         $existingBooking = $this->bookingsRepo->findBookingById($id);
         if (!$existingBooking) {
-            return [
-                'booking' => null,
-                'error'   => BookingsMessages::NOT_FOUND
-            ];
+            return BookingsMessages::NOT_FOUND;
         }
 
+        if (
+            $updatedBooking->getHouse() && $existingBooking->getHouse()->getId() !== $updatedBooking->getHouse()->getId()
+        ) {
+            $houseSwitchError = $this->switchHouse($existingBooking, $updatedBooking);
+            if ($houseSwitchError) {
+                return $houseSwitchError;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param Booking $updatedBooking
+     * @param int $id
+     * @return Booking
+     */
+    public function updateBooking(Booking $updatedBooking, int $id): Booking
+    {
+        $existingBooking = $this->bookingsRepo->findBookingById($id);
+
         $existingBooking
-            ->setPhoneNumber(
-                $updatedBooking->getPhoneNumber() ?? $existingBooking->getPhoneNumber()
+            ->setUser(
+                $updatedBooking->getUser() ?? $existingBooking->getUser()
             )
             ->setComment(
                 $updatedBooking->getComment() ?? $existingBooking->getComment()
@@ -193,41 +249,34 @@ class BookingsService
         if (
             $updatedBooking->getHouse() && $existingBooking->getHouse()->getId() !== $updatedBooking->getHouse()->getId()
         ) {
-            $error = $this->switchHouse($existingBooking, $updatedBooking);
-            if ($error !== null) {
-                return [
-                    'booking' => null,
-                    'error'   => $error
-                ];
-            }
             $existingBooking->setHouse($updatedBooking->getHouse());
         }
 
         $this->bookingsRepo->updateBooking($existingBooking);
-        return [
-            'booking' => $existingBooking,
-            'error'   => null
-        ];
+        return $existingBooking;
     }
 
     /**
-     * @return array{booking:Booking|null,error:string|null}
+     * @param int $id
+     * @return string|null
      */
-    public function deleteBooking(int $id): array
+    public function validateBookingDeletion(int $id): ?string
     {
         $booking = $this->bookingsRepo->findBookingById($id);
         if (!$booking) {
-            return [
-                'booking' => null,
-                'error'   => BookingsMessages::NOT_FOUND
-            ];
+            return BookingsMessages::NOT_FOUND;
         }
 
+        return null;
+    }
+
+    /**
+     * @param int $id
+     * @return void
+     */
+    public function deleteBooking(int $id): void
+    {
         $this->bookingsRepo->deleteBookingById($id);
-        return [
-            'booking' => $booking,
-            'error'   => null
-        ];
     }
 
     /**
@@ -269,16 +318,16 @@ class BookingsService
     }
 
     /**
-     * @param array $criteria
-     * @param bool|null $isActual
+     * @param int $userId
+     * @param mixed $isActual
      * @return Booking[]
      */
-    public function findBookingsByCriteria(
-        array $criteria,
+    public function findBookingsByUserId(
+        int $userId,
         ?bool $isActual = null
     ): array {
-        return $this->bookingsRepo->findBookingsByCriteria(
-            $criteria,
+        return $this->bookingsRepo->findBookingsByUserId(
+            $userId,
             $isActual
         );
     }

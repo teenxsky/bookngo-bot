@@ -12,6 +12,7 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: HousesRepository::class)]
+#[ORM\Table(name: 'houses')]
 class House
 {
     #[ORM\Id]
@@ -65,8 +66,9 @@ class House
     #[Assert\Type('boolean')]
     private ?bool $hasSeaView = null;
 
-    #[ORM\ManyToOne(inversedBy: 'houses')]
+    #[ORM\ManyToOne(inversedBy: 'houses', cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?City $city = null;
 
     #[ORM\OneToMany(mappedBy: 'house', targetEntity: Booking::class)]

@@ -1,3 +1,5 @@
-id,phone_number,house_id,comment,start_date,end_date,telegram_chat_id,telegram_user_id,telegram_username
-1,"+1234567890",1,"First booking","2023-06-01","2023-06-10",123456789,987654321,"user1"
-2,"+9876543210",2,"Second booking","2023-07-15","2023-07-20",987654321,123456789,"user2"
+id,user_id,house_id,comment,start_date,end_date
+1,1,1,"First booking","2024-01-01","2024-01-10"
+2,1,2,"Second booking","2024-02-15","2024-02-20"
+3,2,3,"Beach house","2024-03-01","2024-03-07"
+4,2,4,"Luxury villa","2024-04-10","2024-04-17"

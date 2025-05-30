@@ -36,9 +36,15 @@ class CitiesServiceTest extends KernelTestCase
         $kernel = self::bootKernel();
         $this->assertSame('test', $kernel->getEnvironment());
 
-        $this->entityManager       = static::getContainer()->get('doctrine')->getManager();
-        $this->citiesRepository    = $this->entityManager->getRepository(City::class);
-        $this->countriesRepository = $this->entityManager->getRepository(Country::class);
+        $this->entityManager = static::getContainer()
+            ->get('doctrine')
+            ->getManager();
+        $this->citiesRepository = $this->entityManager->getRepository(
+            City::class
+        );
+        $this->countriesRepository = $this->entityManager->getRepository(
+            Country::class
+        );
 
         $this->citiesService = new CitiesService(
             $this->citiesRepository
@@ -51,9 +57,9 @@ class CitiesServiceTest extends KernelTestCase
     private function truncateTables(): void
     {
         $connection = $this->entityManager->getConnection();
-        $connection->executeStatement('TRUNCATE TABLE city RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE country RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE house RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE cities RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE countries RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE TABLE houses RESTART IDENTITY CASCADE');
     }
 
     private function createTestData(): void
@@ -123,15 +129,16 @@ class CitiesServiceTest extends KernelTestCase
     public function testFindCityById(): void
     {
         $expectedCity = $this->testCities[0];
-        $result       = $this->citiesService->findCityById($expectedCity->getId());
+        $city         = $this->citiesService->findCityById($expectedCity->getId());
 
-        $this->assertNull($result['error']);
-        $this->assertNotNull($result['city']);
-        $this->assertCitiesEqual($expectedCity, $result['city']);
+        $this->assertNotNull($city);
+        $this->assertCitiesEqual($expectedCity, $city);
 
-        $result = $this->citiesService->findCityById(999);
-        $this->assertNotNull($result['error']);
-        $this->assertNull($result['city']);
+        $nonExistentCity = $this->citiesService->findCityById(999);
+        $this->assertNull($nonExistentCity);
+
+        $validationError = $this->citiesService->validateCityExists(999);
+        $this->assertNotNull($validationError);
     }
 
     public function testFindCitiesByCountryId(): void
@@ -200,36 +207,36 @@ class CitiesServiceTest extends KernelTestCase
             ->setName('Updated City Name')
             ->setCountry($this->testCountry2);
 
-        $error = $this->citiesService->updateCity($updatedCity, $city->getId());
-        $this->assertNull($error);
+        $validationError = $this->citiesService->validateCityUpdate($city->getId());
+        $this->assertNull($validationError);
 
-        $result = $this->citiesService->findCityById($city->getId());
+        $this->citiesService->updateCity($updatedCity, $city->getId());
+
+        $updatedCityResult = $this->citiesService->findCityById($city->getId());
         $this->assertEquals(
             $updatedCity->getName(),
-            $result['city']->getName()
+            $updatedCityResult->getName()
         );
-        $this->assertEquals($this->testCountry2->getId(), $result['city']->getCountry()->getId());
+        $this->assertEquals($this->testCountry2->getId(), $updatedCityResult->getCountry()->getId());
     }
 
     public function testUpdateNonExistentCity(): void
     {
-        $updatedCity = (new City())
-            ->setName('Non-existent City')
-            ->setCountry($this->testCountry1);
-
-        $error = $this->citiesService->updateCity($updatedCity, 999);
-        $this->assertNotNull($error);
+        $validationError = $this->citiesService->validateCityUpdate(999);
+        $this->assertNotNull($validationError);
     }
 
     public function testDeleteCity(): void
     {
-        $cityWithHouses = $this->testCities[0];
-        $error          = $this->citiesService->deleteCity($cityWithHouses->getId());
-        $this->assertNotNull($error);
+        $cityWithHouses  = $this->testCities[0];
+        $validationError = $this->citiesService->validateCityDeletion($cityWithHouses->getId());
+        $this->assertNotNull($validationError);
 
         $cityWithoutHouses = $this->testCities[1];
-        $error             = $this->citiesService->deleteCity($cityWithoutHouses->getId());
-        $this->assertNull($error);
+        $validationError   = $this->citiesService->validateCityDeletion($cityWithoutHouses->getId());
+        $this->assertNull($validationError);
+
+        $this->citiesService->deleteCity($cityWithoutHouses->getId());
 
         $cities = $this->citiesService->findAllCities();
         $this->assertCount(1, $cities);
@@ -237,7 +244,7 @@ class CitiesServiceTest extends KernelTestCase
 
     public function testDeleteNonExistentCity(): void
     {
-        $error = $this->citiesService->deleteCity(999);
-        $this->assertNotNull($error);
+        $validationError = $this->citiesService->validateCityDeletion(999);
+        $this->assertNotNull($validationError);
     }
 }

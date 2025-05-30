@@ -70,7 +70,13 @@ cp .env.dev .env.dev.local
 cp .env.test .env.test.local
 ```
 
-2. Add Telegram Bot Token:
+2. Generate JWT keypair:
+
+```bash
+make generate-jwt-keypair
+```
+
+3. Add Telegram Bot Token:
 
 ```bash
 # .env.local
@@ -80,20 +86,20 @@ TELEGRAM_BOT_USERNAME=your_telegram_bot_username
 TELEGRAM_ADMIN_CHAT_ID=telegram_admin_chat
 ```
 
-3. Build and start containers:
+4. Build and start containers:
 
 ```bash
 make build
 make up
 ```
 
-4. Initialize database:
+5. Initialize database:
 
 ```bash
 make migrate-db
 ```
 
-5. Run command to set Telegram webhook:
+6. Run command to set Telegram webhook:
 
 ```bash
 make set-webhook
