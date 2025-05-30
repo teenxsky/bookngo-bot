@@ -1,6 +1,6 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
 
 namespace App\Constant;
 
@@ -30,25 +30,20 @@ class UsersMessages extends ApiMessages
      * @param string $message
      * @param string $accessToken
      * @param string $refreshToken
-     * @param array $errors
-     * @return array[]|array{errors: array, message: string, tokens: array{access_token:string,refresh_token:string}}
+     * @return array{message: string, tokens: array{access_token: string,refresh_token: string}}
      */
     public static function buildAuthMessage(
         string $message,
         string $accessToken,
-        string $refreshToken,
-        array $errors = []
+        string $refreshToken
     ): array {
-        $response = self::buildMessage(
-            $message,
-            $errors
-        );
-
-        $response['tokens'] = [
-          'access_token'  => $accessToken,
-          'refresh_token' => $refreshToken,
+        return [
+            'message' => $message,
+            'tokens'  => [
+                'access_token'  => $accessToken,
+                'refresh_token' => $refreshToken,
+            ],
         ];
-        return $response;
     }
 
     /**
@@ -56,32 +51,30 @@ class UsersMessages extends ApiMessages
      */
     public static function register(): array
     {
-        return self::buildMessage(
-            self::REGISTER,
-        );
+        return self::buildMessage(self::REGISTER);
     }
 
     /**
      * @param string $accessToken
      * @param string $refreshToken
-     * @return array[]|array{errors: array, message: string, tokens: array{access_token:string,refresh_token:string}}
+     * @return array{message: string, tokens: array{access_token: string,refresh_token: string}}
      */
-    public static function login(string $accessToken, string $refreshToken): array
-    {
-        return self::buildAuthMessage(
-            self::LOGIN,
-            $accessToken,
-            $refreshToken
-        );
+    public static function login(
+        string $accessToken,
+        string $refreshToken
+    ): array {
+        return self::buildAuthMessage(self::LOGIN, $accessToken, $refreshToken);
     }
 
     /**
      * @param string $accessToken
      * @param string $refreshToken
-     * @return array{message:string,errors?:array}
+     * @return array{message: string, tokens: array{access_token: string,refresh_token: string}}
      */
-    public static function refresh(string $accessToken, string $refreshToken): array
-    {
+    public static function refresh(
+        string $accessToken,
+        string $refreshToken
+    ): array {
         return self::buildAuthMessage(
             self::REFRESH,
             $accessToken,
@@ -94,9 +87,7 @@ class UsersMessages extends ApiMessages
      */
     public static function logout(): array
     {
-        return self::buildMessage(
-            self::LOGOUT
-        );
+        return self::buildMessage(self::LOGOUT);
     }
 
     /**
@@ -105,10 +96,7 @@ class UsersMessages extends ApiMessages
      */
     public static function registrationFailed(array $errors): array
     {
-        return self::buildMessage(
-            self::REGISTRATION_FAILED,
-            $errors
-        );
+        return self::buildMessage(self::REGISTRATION_FAILED, $errors);
     }
 
     /**
@@ -117,10 +105,7 @@ class UsersMessages extends ApiMessages
      */
     public static function loginFailed(array $errors): array
     {
-        return self::buildMessage(
-            self::LOGIN_FAILED,
-            $errors
-        );
+        return self::buildMessage(self::LOGIN_FAILED, $errors);
     }
 
     /**
@@ -129,10 +114,7 @@ class UsersMessages extends ApiMessages
      */
     public static function logoutFailed(array $errors): array
     {
-        return self::buildMessage(
-            self::LOGOUT_FAILED,
-            $errors
-        );
+        return self::buildMessage(self::LOGOUT_FAILED, $errors);
     }
 
     /**
@@ -141,10 +123,7 @@ class UsersMessages extends ApiMessages
      */
     public static function refreshFailed(array $errors): array
     {
-        return self::buildMessage(
-            self::REFRESH_FAILED,
-            $errors
-        );
+        return self::buildMessage(self::REFRESH_FAILED, $errors);
     }
 
     /**
@@ -152,8 +131,6 @@ class UsersMessages extends ApiMessages
      */
     public static function notFound(): array
     {
-        return self::buildMessage(
-            self::NOT_FOUND
-        );
+        return self::buildMessage(self::NOT_FOUND);
     }
 }

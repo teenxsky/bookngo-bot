@@ -21,24 +21,25 @@ class EntityValidator
      */
     public function validate(object $entity): ?array
     {
-        $errors = $this->validator->validate($entity);
+        $validationErrors = $this->validator->validate($entity);
 
-        if (count($errors) === 0) {
+        if (count($validationErrors) === 0) {
             return null;
         }
 
-        return $this->formatErrors($errors);
+        return $this->formatErrors($validationErrors);
     }
 
     /**
-     * @param ConstraintViolationListInterface $errors
+     * @param ConstraintViolationListInterface $validationErrors
      * @return array<array{field: string, message: string}>
      */
-    private function formatErrors(ConstraintViolationListInterface $errors): array
-    {
+    private function formatErrors(
+        ConstraintViolationListInterface $validationErrors
+    ): array {
         $formattedErrors = [];
 
-        foreach ($errors as $error) {
+        foreach ($validationErrors as $error) {
             $formattedErrors[] = [
                 'field' => (new UnicodeString(
                     $error->getPropertyPath()

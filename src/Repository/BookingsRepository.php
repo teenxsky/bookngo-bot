@@ -55,7 +55,7 @@ class BookingsRepository extends ServiceEntityRepository
 
     /**
      * @param int $userId
-     * @param mixed $isActual
+     * @param bool|null $isActual
      * @return Booking[]
      */
     public function findBookingsByUserId(int $userId, ?bool $isActual = null): array

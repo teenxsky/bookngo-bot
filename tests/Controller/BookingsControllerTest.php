@@ -131,14 +131,23 @@ class BookingsControllerTest extends WebTestCase
         );
 
         // Login to get tokens
-        self::$userTokens = $usersService->loginApiUser(
+        if (!$usersService->validateCredentials(
             self::USER_PHONE_NUMBER,
             self::USER_PASSWORD
-        )['tokens'];
-        self::$adminTokens = $usersService->loginApiUser(
+        )) {
+            self::$userTokens = $usersService->loginApiUser(
+                self::USER_PHONE_NUMBER
+            );
+        }
+
+        if (!$usersService->validateCredentials(
             self::ADMIN_PHONE_NUMBER,
             self::ADMIN_PASSWORD
-        )['tokens'];
+        )) {
+            self::$adminTokens = $usersService->loginApiUser(
+                self::ADMIN_PHONE_NUMBER,
+            );
+        }
 
         // Initialize the database
         self::$countriesRepository = $entityManager->getRepository(

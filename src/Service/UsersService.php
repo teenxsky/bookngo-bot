@@ -107,35 +107,31 @@ class UsersService
 
     /**
      * @param string $phoneNumber
-     * @param string $password
-     * @return array{tokens:array{access_token:string,refresh_token:string}|null,error:string|null}
+     * @return array{access_token:string,refresh_token:string}|null
      */
-    public function loginApiUser(
-        string $phoneNumber,
-        string $password
-    ): array {
+    public function loginApiUser(string $phoneNumber): ?array
+    {
+        $user = $this->findUserByPhoneNumber($phoneNumber);
+        return $this->generateTokens($user);
+    }
+
+    /**
+     * @param string $phoneNumber
+     * @param string $password
+     * @return string|null
+     */
+    public function validateCredentials(string $phoneNumber, string $password): ?string
+    {
         $existingUser = $this->findUserByPhoneNumber($phoneNumber);
         if (!$existingUser) {
-            return [
-                'tokens' => null,
-                'error'  => UsersMessages::NOT_FOUND
-            ];
+            return UsersMessages::NOT_FOUND;
         }
 
-        if (!$this->passwordHasher->isPasswordValid(
-            $existingUser,
-            $password,
-        )) {
-            return [
-                'tokens' => null,
-                'error'  => UsersMessages::INVALID_CREDENTIALS
-            ];
+        if (!$this->passwordHasher->isPasswordValid($existingUser, $password)) {
+            return UsersMessages::INVALID_CREDENTIALS;
         }
 
-        return [
-            'tokens' => $this->generateTokens($existingUser),
-            'error'  => null
-        ];
+        return null;
     }
 
     /**
@@ -165,37 +161,40 @@ class UsersService
 
     /**
      * @param string $refreshToken
-     * @return array{tokens:array{access_token:string,refresh_token:string}|null,error:string|null}
+     * @return array{access_token:string,refresh_token:string}|null
      */
-    public function refresh(string $refreshToken): array
+    public function refresh(string $refreshToken): ?array
     {
-        $refreshTokenEntity = $this->refreshTokenManager->get(
-            $refreshToken
-        );
-
-        if (!$refreshTokenEntity || !$refreshTokenEntity->isValid()) {
-            return [
-                'tokens' => null,
-                'error'  => UsersMessages::INVALID_REFRESH
-            ];
+        $validationError = $this->validateRefreshToken($refreshToken);
+        if ($validationError) {
+            return null;
         }
 
-        $user = $this->findUserByPhoneNumber(
-            $refreshTokenEntity->getUsername()
-        );
-        if (!$user) {
-            return [
-                'tokens' => null,
-                'error'  => UsersMessages::NOT_FOUND
-            ];
-        }
-
+        $refreshTokenEntity = $this->refreshTokenManager->get($refreshToken);
         $this->refreshTokenManager->delete($refreshTokenEntity);
 
-        return [
-            'tokens' => $this->generateTokens($user),
-            'error'  => null
-        ];
+        $user = $this->findUserByPhoneNumber($refreshTokenEntity->getUsername());
+
+        return $this->generateTokens($user);
+    }
+
+    /**
+     * @param string $refreshToken
+     * @return string|null
+     */
+    public function validateRefreshToken(string $refreshToken): ?string
+    {
+        $refreshTokenEntity = $this->refreshTokenManager->get($refreshToken);
+        if (!$refreshTokenEntity || !$refreshTokenEntity->isValid()) {
+            return UsersMessages::INVALID_REFRESH;
+        }
+
+        $user = $this->findUserByPhoneNumber($refreshTokenEntity->getUsername());
+        if (!$user) {
+            return UsersMessages::NOT_FOUND;
+        }
+
+        return null;
     }
 
     /**
@@ -234,9 +233,7 @@ class UsersService
      */
     public function isValidToken(int $tokenVersion, string $phoneNumber): bool
     {
-        $user = $this->usersRepository->findOneBy(
-            ['phoneNumber' => $phoneNumber]
-        );
+        $user = $this->findUserByPhoneNumber($phoneNumber);
 
         if (!$user) {
             return false;
@@ -256,5 +253,14 @@ class UsersService
     public function findUserByCriteria(array $criteria): ?User
     {
         return $this->usersRepository->findOneBy($criteria);
+    }
+
+    /**
+     * @param User $user
+     * @return bool
+     */
+    public function isAdmin(User $user): bool
+    {
+        return in_array('ROLE_ADMIN', $user->getRoles(), true);
     }
 }

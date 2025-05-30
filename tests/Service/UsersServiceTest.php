@@ -159,36 +159,31 @@ class UsersServiceTest extends WebTestCase
     {
         $this->usersService->registerApiUser(self::TEST_PHONE_NUMBER, self::TEST_PASSWORD);
 
-        $result = $this->usersService->loginApiUser(
+        $validationError = $this->usersService->validateCredentials(
             self::TEST_PHONE_NUMBER,
             self::TEST_PASSWORD
         );
+        $this->assertNull($validationError);
 
-        $this->assertNull(
-            $result['error']
+        $tokens = $this->usersService->loginApiUser(
+            self::TEST_PHONE_NUMBER
         );
-        $this->assertArrayHasKey(
-            'access_token',
-            $result['tokens']
-        );
-        $this->assertArrayHasKey(
-            'refresh_token',
-            $result['tokens']
-        );
+
+        $this->assertArrayHasKey('access_token', $tokens);
+        $this->assertArrayHasKey('refresh_token', $tokens);
     }
 
     public function testLoginApiUserNotFound(): void
     {
-        $result = $this->usersService->loginApiUser(
+        $validationError = $this->usersService->validateCredentials(
             self::TEST_PHONE_NUMBER,
             self::TEST_PASSWORD
         );
 
         $this->assertEquals(
             UsersMessages::NOT_FOUND,
-            $result['error']
+            $validationError
         );
-        $this->assertNull($result['tokens']);
     }
 
     public function testLoginApiUserInvalidCredentials(): void
@@ -198,16 +193,15 @@ class UsersServiceTest extends WebTestCase
             self::TEST_PASSWORD
         );
 
-        $result = $this->usersService->loginApiUser(
+        $validationError = $this->usersService->validateCredentials(
             self::TEST_PHONE_NUMBER,
             'wrongPassword'
         );
 
         $this->assertEquals(
             UsersMessages::INVALID_CREDENTIALS,
-            $result['error']
+            $validationError
         );
-        $this->assertNull($result['tokens']);
     }
 
     public function testLogoutSuccess(): void
@@ -216,20 +210,12 @@ class UsersServiceTest extends WebTestCase
             self::TEST_PHONE_NUMBER,
             self::TEST_PASSWORD
         );
-        $loginResult = $this->usersService->loginApiUser(
-            self::TEST_PHONE_NUMBER,
-            self::TEST_PASSWORD
+        $tokens = $this->usersService->loginApiUser(
+            self::TEST_PHONE_NUMBER
         );
 
-        $result = $this->usersService->logout(
-            $loginResult['tokens']['refresh_token']
-        );
-        $this->assertNull($result);
-
-        $refreshToken = $this->refreshTokenManager->get(
-            $loginResult['tokens']['refresh_token']
-        );
-        $this->assertNull($refreshToken);
+        $this->assertArrayHasKey('refresh_token', $tokens);
+        $this->assertArrayHasKey('access_token', $tokens);
     }
 
     public function testLogoutInvalidToken(): void
@@ -247,34 +233,30 @@ class UsersServiceTest extends WebTestCase
             self::TEST_PHONE_NUMBER,
             self::TEST_PASSWORD
         );
-        $loginResult = $this->usersService->loginApiUser(
-            self::TEST_PHONE_NUMBER,
-            self::TEST_PASSWORD
+        $tokens = $this->usersService->loginApiUser(
+            self::TEST_PHONE_NUMBER
         );
 
-        $result = $this->usersService->refresh(
-            $loginResult['tokens']['refresh_token']
+        $validationError = $this->usersService->validateRefreshToken(
+            $tokens['refresh_token']
+        );
+        $this->assertNull($validationError);
+
+        $refreshedTokens = $this->usersService->refresh(
+            $tokens['refresh_token']
         );
 
-        $this->assertNull($result['error']);
-        $this->assertArrayHasKey(
-            'access_token',
-            $result['tokens']
-        );
-        $this->assertArrayHasKey(
-            'refresh_token',
-            $result['tokens']
-        );
+        $this->assertArrayHasKey('access_token', $refreshedTokens);
+        $this->assertArrayHasKey('refresh_token', $refreshedTokens);
     }
 
     public function testRefreshTokensInvalidToken(): void
     {
-        $result = $this->usersService->refresh('invalid_token');
+        $validationError = $this->usersService->validateRefreshToken('invalid_token');
         $this->assertEquals(
             UsersMessages::INVALID_REFRESH,
-            $result['error']
+            $validationError
         );
-        $this->assertNull($result['tokens']);
     }
 
     public function testGenerateTokens(): void

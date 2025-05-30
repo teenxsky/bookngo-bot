@@ -112,10 +112,14 @@ class HousesControllerTest extends WebTestCase
         );
 
         // Login to get tokens
-        self::$adminTokens = $usersService->loginApiUser(
+        if (!$usersService->validateCredentials(
             self::ADMIN_PHONE_NUMBER,
             self::ADMIN_PASSWORD
-        )['tokens'];
+        )) {
+            self::$adminTokens = $usersService->loginApiUser(
+                self::ADMIN_PHONE_NUMBER,
+            );
+        }
 
         // Initialize the database
         self::$countriesRepository = $entityManager->getRepository(

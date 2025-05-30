@@ -114,15 +114,23 @@ class UsersControllerTest extends WebTestCase
             User::class
         );
 
-        self::$userTokens = self::$usersService->loginApiUser(
+        if (!self::$usersService->validateCredentials(
             self::USER_PHONE_NUMBER,
             self::USER_PASSWORD
-        )['tokens'];
+        )) {
+            self::$userTokens = self::$usersService->loginApiUser(
+                self::USER_PHONE_NUMBER
+            );
+        }
 
-        self::$adminTokens = self::$usersService->loginApiUser(
+        if (!self::$usersService->validateCredentials(
             self::ADMIN_PHONE_NUMBER,
             self::ADMIN_PASSWORD
-        )['tokens'];
+        )) {
+            self::$adminTokens = self::$usersService->loginApiUser(
+                self::ADMIN_PHONE_NUMBER,
+            );
+        }
     }
 
     private function assertResponse(

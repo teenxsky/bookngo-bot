@@ -50,11 +50,11 @@ class CountriesController extends AbstractController
             return $country;
         }
 
-        $error = $this->entityValidator->validate($country);
-        if ($error) {
+        $validationError = $this->entityValidator->validate($country);
+        if ($validationError) {
             return new JsonResponse(
                 CountriesMessages::validationFailed(
-                    $error
+                    $validationError
                 ),
                 Response::HTTP_BAD_REQUEST
             );
@@ -70,10 +70,10 @@ class CountriesController extends AbstractController
     #[Route('/{id}', name: 'get_by_id', methods: ['GET'])]
     public function getCountry(int $id): JsonResponse
     {
-        $result = $this->countryService->findCountryById($id);
-        return $result['country']
+        $country = $this->countryService->findCountryById($id);
+        return $country
             ? new JsonResponse(
-                $result['country']->toArray(),
+                $country->toArray(),
                 Response::HTTP_OK
             )
             : new JsonResponse(
@@ -90,37 +90,41 @@ class CountriesController extends AbstractController
             return $updatedCountry;
         }
 
-        $result = $this->countryService->updateCountry($updatedCountry, $id);
-        return $result
-            ? new JsonResponse(
-                CountriesMessages::notFound(),
-                Response::HTTP_NOT_FOUND
-            )
-            : new JsonResponse(
-                CountriesMessages::updated(),
-                Response::HTTP_OK
-            );
-    }
-
-    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function deleteCountry(int $id): JsonResponse
-    {
-        $result = $this->countryService->deleteCountry($id);
-
-        if ($result === CountriesMessages::NOT_FOUND) {
+        $validationError = $this->countryService->validateCountryUpdate($id);
+        if ($validationError) {
             return new JsonResponse(
                 CountriesMessages::notFound(),
                 Response::HTTP_NOT_FOUND
             );
         }
 
-        if ($result === CountriesMessages::HAS_CITIES) {
+        $this->countryService->updateCountry($updatedCountry, $id);
+        return new JsonResponse(
+            CountriesMessages::updated(),
+            Response::HTTP_OK
+        );
+    }
+
+    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    public function deleteCountry(int $id): JsonResponse
+    {
+        $validationError = $this->countryService->validateCountryDeletion($id);
+
+        if ($validationError === CountriesMessages::NOT_FOUND) {
+            return new JsonResponse(
+                CountriesMessages::notFound(),
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        if ($validationError === CountriesMessages::HAS_CITIES) {
             return new JsonResponse(
                 CountriesMessages::hasCities(),
                 Response::HTTP_BAD_REQUEST
             );
         }
 
+        $this->countryService->deleteCountry($id);
         return new JsonResponse(
             CountriesMessages::deleted(),
             Response::HTTP_OK

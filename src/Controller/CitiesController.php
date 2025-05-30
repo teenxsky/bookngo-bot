@@ -50,11 +50,11 @@ class CitiesController extends AbstractController
             return $city;
         }
 
-        $error = $this->entityValidator->validate($city);
-        if ($error) {
+        $validationError = $this->entityValidator->validate($city);
+        if ($validationError) {
             return new JsonResponse(
                 CitiesMessages::validationFailed(
-                    $error
+                    $validationError
                 ),
                 Response::HTTP_BAD_REQUEST
             );
@@ -70,10 +70,10 @@ class CitiesController extends AbstractController
     #[Route('/{id}', name: 'get_by_id', methods: ['GET'])]
     public function getCity(int $id): JsonResponse
     {
-        $result = $this->cityService->findCityById($id);
-        return $result['city']
+        $city = $this->cityService->findCityById($id);
+        return $city
             ? new JsonResponse(
-                $result['city']->toArray(),
+                $city->toArray(),
                 Response::HTTP_OK
             )
             : new JsonResponse(
@@ -90,37 +90,41 @@ class CitiesController extends AbstractController
             return $updatedCity;
         }
 
-        $result = $this->cityService->updateCity($updatedCity, $id);
-        return $result
-            ? new JsonResponse(
-                CitiesMessages::notFound(),
-                Response::HTTP_NOT_FOUND
-            )
-            : new JsonResponse(
-                CitiesMessages::updated(),
-                Response::HTTP_OK
-            );
-    }
-
-    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function deleteCity(int $id): JsonResponse
-    {
-        $result = $this->cityService->deleteCity($id);
-
-        if ($result === CitiesMessages::NOT_FOUND) {
+        $validationError = $this->cityService->validateCityUpdate($id);
+        if ($validationError) {
             return new JsonResponse(
                 CitiesMessages::notFound(),
                 Response::HTTP_NOT_FOUND
             );
         }
 
-        if ($result === CitiesMessages::HAS_HOUSES) {
+        $this->cityService->updateCity($updatedCity, $id);
+        return new JsonResponse(
+            CitiesMessages::updated(),
+            Response::HTTP_OK
+        );
+    }
+
+    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    public function deleteCity(int $id): JsonResponse
+    {
+        $validationError = $this->cityService->validateCityDeletion($id);
+
+        if ($validationError === CitiesMessages::NOT_FOUND) {
+            return new JsonResponse(
+                CitiesMessages::notFound(),
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        if ($validationError === CitiesMessages::HAS_HOUSES) {
             return new JsonResponse(
                 CitiesMessages::hasHouses(),
                 Response::HTTP_BAD_REQUEST
             );
         }
 
+        $this->cityService->deleteCity($id);
         return new JsonResponse(
             CitiesMessages::deleted(),
             Response::HTTP_OK

@@ -25,24 +25,24 @@ class CountriesService
 
     /**
      * @param int $id
-     * @return array{
-     *    country: Country|null,
-     *    error: string|null
-     * }
+     * @return Country|null
      */
-    public function findCountryById(int $id): array
+    public function findCountryById(int $id): ?Country
     {
-        $country = $this->countryRepo->findCountryById($id);
+        return $this->countryRepo->findCountryById($id);
+    }
+
+    /**
+     * @param int $id
+     * @return string|null
+     */
+    public function validateCountryExists(int $id): ?string
+    {
+        $country = $this->findCountryById($id);
         if (!$country) {
-            return [
-                'country' => null,
-                'error'   => CountriesMessages::NOT_FOUND
-            ];
+            return CountriesMessages::NOT_FOUND;
         }
-        return [
-            'country' => $country,
-            'error'   => null
-        ];
+        return null;
     }
 
     public function addCountry(Country $country): void
@@ -51,40 +51,52 @@ class CountriesService
     }
 
     /**
-     * @param Country $updatedCountry
      * @param int $id
      * @return string|null
      */
-    public function updateCountry(Country $updatedCountry, int $id): ?string
+    public function validateCountryUpdate(int $id): ?string
     {
-        $result = $this->findCountryById($id);
-        if ($result['error'] !== null) {
-            return $result['error'];
-        }
+        return $this->validateCountryExists($id);
+    }
 
-        $existingCountry = $result['country'];
+    /**
+     * @param Country $updatedCountry
+     * @param int $id
+     * @return void
+     */
+    public function updateCountry(Country $updatedCountry, int $id): void
+    {
+        $existingCountry = $this->findCountryById($id);
         $existingCountry->setName($updatedCountry->getName());
 
         $this->countryRepo->updateCountry($existingCountry);
-        return null;
     }
 
     /**
      * @param int $id
      * @return string|null
      */
-    public function deleteCountry(int $id): ?string
+    public function validateCountryDeletion(int $id): ?string
     {
-        $result = $this->findCountryById($id);
-        if ($result['error'] !== null) {
-            return $result['error'];
+        $validationError = $this->validateCountryExists($id);
+        if ($validationError) {
+            return $validationError;
         }
 
-        if ($result['country']->getCities()->count() > 0) {
+        $country = $this->findCountryById($id);
+        if ($country->getCities()->count() > 0) {
             return CountriesMessages::HAS_CITIES;
         }
 
-        $this->countryRepo->deleteCountryById($id);
         return null;
+    }
+
+    /**
+     * @param int $id
+     * @return void
+     */
+    public function deleteCountry(int $id): void
+    {
+        $this->countryRepo->deleteCountryById($id);
     }
 }

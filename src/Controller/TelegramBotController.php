@@ -70,7 +70,7 @@ class TelegramBotController extends AbstractController
             $message = sprintf(
                 TelegramMessages::ERROR_REPORT_FORMAT,
                 (new DateTimeImmutable())->format('Y-m-d H:i:s'),
-                $update->getMessage()?->getFrom()?->getId()       ?? -1,
+                $update->getMessage()?->getFrom()?->getId         ?? -1,
                 $update->getMessage()?->getFrom()?->getUsername() ?? '',
                 $e->getMessage()
             );
@@ -320,8 +320,9 @@ class TelegramBotController extends AbstractController
                         $this->stateManager::MAIN_MENU
                     )
                 ),
-            ],
+            ]
         ];
+
         $this->sendMessage(
             $chatId,
             TelegramMessages::MY_BOOKINGS,
@@ -405,7 +406,7 @@ class TelegramBotController extends AbstractController
         );
 
         $message = sprintf(
-            TelegramMessages::BOOKING_SUMMARY_FORMAT,
+            TelegramMessages::BOOKING_INFO_FORMAT,
             $booking->getHouse()->getId(),
             $booking->getHouse()->getCity()->getCountry()->getName(),
             $booking->getHouse()->getCity()->getName(),
@@ -487,18 +488,22 @@ class TelegramBotController extends AbstractController
             ],
         ];
 
-        $result = $this->bookingsService->deleteBooking(
+        $validationError = $this->bookingsService->validateBookingDeletion(
             $session['data']['booking_id']
         );
-        if ($result['error'] !== null) {
+        if ($validationError) {
             $this->sendMessage(
                 $chatId,
-                sprintf(TelegramMessages::ERROR_FORMAT, $result['error']),
+                sprintf(TelegramMessages::ERROR_FORMAT, $validationError),
                 $messageId,
                 new InlineKeyboardMarkup($buttons)
             );
             return;
         }
+
+        $this->bookingsService->deleteBooking(
+            $session['data']['booking_id']
+        );
 
         $this->sendMessage(
             $chatId,
@@ -610,18 +615,20 @@ class TelegramBotController extends AbstractController
         $state   = $this->stateManager::DATES;
         $session = $this->sessionsManager->getSession($chatId);
 
-        $buttons[] = [
-            TelegramButtons::back(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::getPrev($state),
-                    $session['data']
-                )
-            ),
-            TelegramButtons::mainMenu(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::MAIN_MENU,
-                )
-            ),
+        $buttons = [
+            [
+                TelegramButtons::back(
+                    $this->stateManager->buildCallback(
+                        $this->stateManager::getPrev($state),
+                        $session['data']
+                    )
+                ),
+                TelegramButtons::mainMenu(
+                    $this->stateManager->buildCallback(
+                        $this->stateManager::MAIN_MENU,
+                    )
+                ),
+            ],
         ];
 
         $this->sendMessage(
@@ -658,14 +665,14 @@ class TelegramBotController extends AbstractController
         $startDate = new DateTimeImmutable($startDate);
         $endDate   = new DateTimeImmutable($endDate);
 
-        $error = $this->bookingsService->validateBookingDates(
+        $validationError = $this->bookingsService->validateBookingDates(
             $startDate,
             $endDate
         );
-        if ($error !== null) {
+        if ($validationError) {
             $this->sendMessage(
                 $chatId,
-                sprintf(TelegramMessages::ERROR_FORMAT, $error),
+                sprintf(TelegramMessages::ERROR_FORMAT, $validationError),
             );
             return;
         }
@@ -727,18 +734,20 @@ class TelegramBotController extends AbstractController
             );
         }
 
-        $buttons[] = [
-            TelegramButtons::back(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::getPrev($state),
-                    $session['data']
-                )
-            ),
-            TelegramButtons::mainMenu(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::MAIN_MENU,
-                )
-            ),
+        $buttons = [
+            [
+                TelegramButtons::back(
+                    $this->stateManager->buildCallback(
+                        $this->stateManager::getPrev($state),
+                        $session['data']
+                    )
+                ),
+                TelegramButtons::mainMenu(
+                    $this->stateManager->buildCallback(
+                        $this->stateManager::MAIN_MENU,
+                    )
+                ),
+            ],
         ];
 
         $this->sendMessage(
@@ -746,7 +755,7 @@ class TelegramBotController extends AbstractController
             empty($houses) ?
                 sprintf(
                     TelegramMessages::HOUSES_NOT_FOUND_FORMAT,
-                    $this->citiesService->findCityById($cityId)['city']->getName()
+                    $this->citiesService->findCityById($cityId)->getName()
                 ) :
                 TelegramMessages::SELECT_HOUSE,
             null,
@@ -769,37 +778,38 @@ class TelegramBotController extends AbstractController
             return;
         }
 
-        $result = $this->housesService->findHouseById((int) $houseId);
-        if ($result['error'] !== null) {
+        $houseValidation = $this->housesService->validateHouseExists((int) $houseId);
+        if ($houseValidation) {
             $this->sendMessage(
                 $chatId,
-                sprintf(TelegramMessages::ERROR_FORMAT, $result['error']),
+                sprintf(TelegramMessages::ERROR_FORMAT, $houseValidation),
             );
             return;
         }
+        $house = $this->housesService->findHouseById((int) $houseId);
 
-        $session = $this->sessionsManager->getSession($chatId);
-        $error   = $this->housesService->validateHouseCity(
-            $result['house'],
+        $session        = $this->sessionsManager->getSession($chatId);
+        $cityValidation = $this->housesService->validateHouseCity(
+            $house,
             (int)$session['data']['city_id']
         );
-        if ($error !== null) {
+        if ($cityValidation) {
             $this->sendMessage(
                 $chatId,
-                sprintf(TelegramMessages::ERROR_FORMAT, $error),
+                sprintf(TelegramMessages::ERROR_FORMAT, $cityValidation),
             );
             return;
         }
 
-        $error = $this->bookingsService->validateHouseAvailability(
-            $result['house'],
+        $availabilityError = $this->bookingsService->validateHouseAvailability(
+            $house,
             new DateTimeImmutable($session['data']['start_date']),
             new DateTimeImmutable($session['data']['end_date']),
         );
-        if ($error !== null) {
+        if ($availabilityError) {
             $this->sendMessage(
                 $chatId,
-                sprintf(TelegramMessages::ERROR_FORMAT, $error),
+                sprintf(TelegramMessages::ERROR_FORMAT, $availabilityError),
             );
             return;
         }
@@ -819,18 +829,20 @@ class TelegramBotController extends AbstractController
     {
         $session = $this->sessionsManager->getSession($chatId);
 
-        $buttons[] = [
-            TelegramButtons::back(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::getPrev($state),
-                    $session['data']
-                )
-            ),
-            TelegramButtons::mainMenu(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::MAIN_MENU
-                )
-            ),
+        $buttons = [
+            [
+                TelegramButtons::back(
+                    $this->stateManager->buildCallback(
+                        $this->stateManager::getPrev($state),
+                        $session['data']
+                    )
+                ),
+                TelegramButtons::mainMenu(
+                    $this->stateManager->buildCallback(
+                        $this->stateManager::MAIN_MENU,
+                    )
+                ),
+            ],
         ];
 
         $this->sendMessage(
@@ -879,27 +891,28 @@ class TelegramBotController extends AbstractController
         $state   = $this->stateManager::BOOKING_SUMMARY;
         $session = $this->sessionsManager->getSession($chatId);
 
-        $buttons[] = [
-            TelegramButtons::confirm(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::getNext($state),
-                    $session['data']
+        $buttons = [
+            [
+                TelegramButtons::confirm(
+                    $this->stateManager->buildCallback(
+                        $this->stateManager::getNext($state),
+                        $session['data']
+                    ),
+                )
+            ],
+            [
+                TelegramButtons::back(
+                    $this->stateManager->buildCallback(
+                        $this->stateManager::getPrev($state),
+                        $session['data']
+                    )
                 ),
-            )
-        ];
-
-        $buttons[] = [
-            TelegramButtons::back(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::getPrev($state),
-                    $session['data']
-                )
-            ),
-            TelegramButtons::mainMenu(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::MAIN_MENU
-                )
-            ),
+                TelegramButtons::mainMenu(
+                    $this->stateManager->buildCallback(
+                        $this->stateManager::MAIN_MENU,
+                    )
+                ),
+            ]
         ];
 
         $startDate = new DateTimeImmutable($session['data']['start_date']);
@@ -908,24 +921,14 @@ class TelegramBotController extends AbstractController
         $totalPrice = $this->bookingsService->calculateTotalPrice(
             $this->housesService->findHouseById(
                 (int)$session['data']['house_id']
-            )['house'],
+            ),
             $startDate,
             $endDate
         );
 
-        $result = $this->housesService->findHouseById(
+        $house = $this->housesService->findHouseById(
             (int) $session['data']['house_id']
         );
-        if ($result['error'] !== null) {
-            $this->sendMessage(
-                $chatId,
-                sprintf(TelegramMessages::ERROR_FORMAT, $result['error']),
-                null,
-                new InlineKeyboardMarkup($buttons),
-            );
-            return;
-        }
-        $house = $result['house'];
 
         $message = sprintf(
             TelegramMessages::BOOKING_SUMMARY_FORMAT,
@@ -960,7 +963,7 @@ class TelegramBotController extends AbstractController
     ): void {
         $session = $this->sessionsManager->getSession($chatId);
 
-        $error = $this->bookingsService->createBooking(
+        $bookingError = $this->bookingsService->createBooking(
             (int) $session['data']['house_id'],
             null,
             $session['data']['comment'],
@@ -972,21 +975,23 @@ class TelegramBotController extends AbstractController
             true
         );
 
-        if ($error !== null) {
+        if ($bookingError) {
             $this->sendMessage(
                 $chatId,
-                sprintf(TelegramMessages::ERROR_FORMAT, $error),
+                sprintf(TelegramMessages::ERROR_FORMAT, $bookingError),
                 $messageId,
             );
             return;
         }
 
-        $buttons[] = [
-            TelegramButtons::mainMenu(
-                $this->stateManager->buildCallback(
-                    $this->stateManager::MAIN_MENU
-                )
-            ),
+        $buttons = [
+            [
+                TelegramButtons::mainMenu(
+                    $this->stateManager->buildCallback(
+                        $this->stateManager::MAIN_MENU
+                    )
+                ),
+            ]
         ];
 
         $this->sendMessage(

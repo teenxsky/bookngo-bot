@@ -52,19 +52,22 @@ class CreateAdminCommand extends Command
             $user = (new User())
                 ->setPhoneNumber($phoneNumber)
                 ->setPassword($password);
-            $error = $this->entityValidator->validate($user);
-            if ($error) {
-                $io->error($error['field'] . ': ' . ($error['message'] ?? ''));
+
+            $validationError = $this->entityValidator->validate($user);
+            if ($validationError) {
+                $io->error(
+                    $validationError['field'] . ': ' . ($validationError['message'] ?? '')
+                );
                 return Command::FAILURE;
             }
 
-            $error = $this->usersService->registerApiUser(
+            $registrationError = $this->usersService->registerApiUser(
                 $user->getPhoneNumber(),
                 $user->getPassword(),
                 true
             );
-            if ($error) {
-                $io->error($error);
+            if ($registrationError) {
+                $io->error($registrationError);
                 return Command::FAILURE;
             }
 

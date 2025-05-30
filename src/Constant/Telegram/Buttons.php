@@ -23,10 +23,10 @@ class Buttons
     }
 
     /**
-     * @param mixed $callback
+     * @param string $callback
      * @return array{callback_data: string, text: string}
      */
-    public static function mainMenu($callback): array
+    public static function mainMenu(string $callback): array
     {
         return self::buildButton(
             '🏠 Main Menu',
@@ -35,10 +35,10 @@ class Buttons
     }
 
     /**
-     * @param mixed $callback
+     * @param string $callback
      * @return array{callback_data: string, text: string}
      */
-    public static function actualBookings($callback): array
+    public static function actualBookings(string $callback): array
     {
         return self::buildButton(
             '✅ Actual',
@@ -47,10 +47,10 @@ class Buttons
     }
 
     /**
-     * @param mixed $callback
+     * @param string $callback
      * @return array{callback_data: string, text: string}
      */
-    public static function archivedBookings($callback): array
+    public static function archivedBookings(string $callback): array
     {
         return self::buildButton(
             '🗄 Archived',
@@ -83,10 +83,10 @@ class Buttons
     }
 
     /**
-     * @param mixed $callback
+     * @param string $callback
      * @return array{callback_data: string, text: string}
      */
-    public static function back($callback): array
+    public static function back(string $callback): array
     {
         return self::buildButton(
             '⬅️ Back',
@@ -156,6 +156,11 @@ class Buttons
         );
     }
 
+    /**
+     * @param string $address
+     * @param string $callback
+     * @return array{callback_data: string, text: string}
+     */
     public static function bookingAddress(string $address, string $callback): array
     {
         return self::buildButton(

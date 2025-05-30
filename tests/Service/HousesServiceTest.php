@@ -145,20 +145,20 @@ class HousesServiceTest extends KernelTestCase
     public function testfindHouseById(): void
     {
         $expectedHouse = $this->testHouses[0];
-        $result        = $this->housesService->findHouseById($expectedHouse->getId());
+        $house         = $this->housesService->findHouseById($expectedHouse->getId());
 
-        $this->assertNull($result['error']);
-        $this->assertNotNull($result['house']);
-        $this->assertHousesEqual($expectedHouse, $result['house']);
+        $this->assertNotNull($house);
+        $this->assertHousesEqual($expectedHouse, $house);
     }
 
     public function testfindHouseByIdNotFound(): void
     {
-        $nonExistentId = 999;
-        $result        = $this->housesService->findHouseById($nonExistentId);
+        $nonExistentId   = 999;
+        $house           = $this->housesService->findHouseById($nonExistentId);
+        $validationError = $this->housesService->validateHouseExists($nonExistentId);
 
-        $this->assertNotNull($result['error']);
-        $this->assertNull($result['house']);
+        $this->assertNull($house);
+        $this->assertNotNull($validationError);
     }
 
     public function testFindAvailableHouses(): void
@@ -224,11 +224,13 @@ class HousesServiceTest extends KernelTestCase
     {
         $houseId = $this->testHouses[0]->getId();
 
-        $error = $this->housesService->deleteHouse(999);
-        $this->assertNotNull($error);
+        $validationError = $this->housesService->validateHouseDeletion(999);
+        $this->assertNotNull($validationError);
 
-        $error = $this->housesService->deleteHouse($houseId);
-        $this->assertNull($error);
+        $validationError = $this->housesService->validateHouseDeletion($houseId);
+        $this->assertNull($validationError);
+
+        $this->housesService->deleteHouse($houseId);
 
         $houses = $this->housesService->findAllHouses();
         $this->assertCount(count($this->testHouses) - 1, $houses);
@@ -242,30 +244,32 @@ class HousesServiceTest extends KernelTestCase
             ->setPricePerNight(1100)
             ->setHasAirConditioning(false);
 
-        $error = $this->housesService->updateHouseFields(
+        $validationError = $this->housesService->validateHouseUpdate($house->getId());
+        $this->assertNull($validationError);
+
+        $this->housesService->updateHouseFields(
             $updatedHouse,
             $house->getId()
         );
-        $this->assertNull($error);
 
-        $result = $this->housesService->findHouseById($house->getId());
+        $updatedHouse = $this->housesService->findHouseById($house->getId());
         $this->assertEquals(
             3,
-            $result['house']->getBedroomsCount()
+            $updatedHouse->getBedroomsCount()
         );
         $this->assertEquals(
             1100,
-            $result['house']->getPricePerNight()
+            $updatedHouse->getPricePerNight()
         );
-        $this->assertFalse($result['house']->hasAirConditioning());
+        $this->assertFalse($updatedHouse->hasAirConditioning());
 
         $this->assertEquals(
             $this->testCity1->getId(),
-            $result['house']->getCity()->getId()
+            $updatedHouse->getCity()->getId()
         );
         $this->assertEquals(
             $this->testCountry1->getId(),
-            $result['house']->getCity()->getCountry()->getId()
+            $updatedHouse->getCity()->getCountry()->getId()
         );
     }
 
@@ -284,33 +288,35 @@ class HousesServiceTest extends KernelTestCase
             ->setImageUrl('http://example.com/replaced.jpg')
             ->setCity($this->testCity1);
 
-        $error = $this->housesService->replaceHouse(
+        $validationError = $this->housesService->validateHouseReplacement($house->getId());
+        $this->assertNull($validationError);
+
+        $this->housesService->replaceHouse(
             $replacingHouse,
             $house->getId()
         );
-        $this->assertNull($error);
 
-        $result = $this->housesService->findHouseById($house->getId());
+        $replacedHouse = $this->housesService->findHouseById($house->getId());
 
         $this->assertEquals(
             'Replaced Address',
-            $result['house']->getAddress()
+            $replacedHouse->getAddress()
         );
         $this->assertEquals(
             $replacingHouse->getBedroomsCount(),
-            $result['house']->getBedroomsCount()
+            $replacedHouse->getBedroomsCount()
         );
         $this->assertEquals(
             $replacingHouse->getImageUrl(),
-            $result['house']->getImageUrl()
+            $replacedHouse->getImageUrl()
         );
         $this->assertEquals(
             $this->testCity1->getId(),
-            $result['house']->getCity()->getId()
+            $replacedHouse->getCity()->getId()
         );
         $this->assertEquals(
             $this->testCountry1->getId(),
-            $result['house']->getCity()->getCountry()->getId()
+            $replacedHouse->getCity()->getCountry()->getId()
         );
     }
 

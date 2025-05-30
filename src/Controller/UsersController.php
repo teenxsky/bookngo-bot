@@ -39,24 +39,24 @@ class UsersController extends AbstractController
             return $user;
         }
 
-        $error = $this->entityValidator->validate($user);
-        if ($error) {
+        $validationError = $this->entityValidator->validate($user);
+        if ($validationError) {
             return new JsonResponse(
                 UsersMessages::validationFailed(
-                    $error
+                    $validationError
                 ),
                 Response::HTTP_BAD_REQUEST
             );
         }
 
-        $error = $this->usersService->registerApiUser(
+        $registrationError = $this->usersService->registerApiUser(
             $user->getPhoneNumber(),
             $user->getPassword()
         );
-        if ($error) {
+        if ($registrationError) {
             return new JsonResponse(
                 UsersMessages::registrationFailed(
-                    [$error]
+                    [$registrationError]
                 ),
                 Response::HTTP_BAD_REQUEST
             );
@@ -76,33 +76,36 @@ class UsersController extends AbstractController
             return $user;
         }
 
-        $error = $this->entityValidator->validate($user);
-        if ($error) {
+        $validationError = $this->entityValidator->validate($user);
+        if ($validationError) {
             return new JsonResponse(
                 UsersMessages::validationFailed(
-                    $error
+                    $validationError
                 ),
                 Response::HTTP_BAD_REQUEST
             );
         }
 
-        $result = $this->usersService->loginApiUser(
+        $authError = $this->usersService->validateCredentials(
             $user->getPhoneNumber(),
             $user->getPassword()
         );
-        if ($result['error']) {
+        if ($authError) {
             return new JsonResponse(
                 UsersMessages::loginFailed(
-                    [$result['error']]
+                    [$authError]
                 ),
                 Response::HTTP_BAD_REQUEST
             );
         }
 
+        $tokens = $this->usersService->loginApiUser(
+            $user->getPhoneNumber()
+        );
         return new JsonResponse(
             UsersMessages::login(
-                $result['tokens']['access_token'],
-                $result['tokens']['refresh_token']
+                $tokens['access_token'],
+                $tokens['refresh_token']
             ),
             Response::HTTP_CREATED
         );
@@ -111,25 +114,16 @@ class UsersController extends AbstractController
     #[Route('/logout', name: 'logout', methods: ['POST'])]
     public function logout(Request $request): JsonResponse
     {
-        $data = json_decode(
-            $request->getContent(),
-            true
-        );
-
-        if (!isset($data['refresh_token'])) {
-            return new JsonResponse(
-                UsersMessages::logoutFailed(
-                    ['Field "refresh_token" is required.']
-                ),
-                Response::HTTP_BAD_REQUEST
-            );
+        $refreshToken = $this->deserializeRefreshToken($request);
+        if ($refreshToken instanceof JsonResponse) {
+            return $refreshToken;
         }
 
-        $error = $this->usersService->logout($data['refresh_token']);
-        if ($error) {
+        $logoutError = $this->usersService->logout($refreshToken);
+        if ($logoutError) {
             return new JsonResponse(
                 UsersMessages::logoutFailed(
-                    [$error]
+                    [$logoutError]
                 ),
                 Response::HTTP_BAD_REQUEST
             );
@@ -144,37 +138,30 @@ class UsersController extends AbstractController
     #[Route('/refresh', name: 'refresh', methods: ['POST'])]
     public function refresh(Request $request): JsonResponse
     {
-        $data = json_decode(
-            $request->getContent(),
-            true
-        );
-
-        if (!isset($data['refresh_token'])) {
-            return new JsonResponse(
-                UsersMessages::logoutFailed(
-                    ['Field "refresh_token" is required.']
-                ),
-                Response::HTTP_BAD_REQUEST
-            );
+        $refreshToken = $this->deserializeRefreshToken($request);
+        if ($refreshToken instanceof JsonResponse) {
+            return $refreshToken;
         }
 
-        $result = $this->usersService->refresh(
-            $data['refresh_token']
+        $validationError = $this->usersService->validateRefreshToken(
+            $refreshToken
         );
-
-        if ($result['error']) {
+        if ($validationError) {
             return new JsonResponse(
                 UsersMessages::refreshFailed(
-                    [$result['error']]
+                    [$validationError]
                 ),
                 Response::HTTP_BAD_REQUEST
             );
         }
 
+        $tokens = $this->usersService->refresh(
+            $refreshToken
+        );
         return new JsonResponse(
             UsersMessages::refresh(
-                $result['tokens']['access_token'],
-                $result['tokens']['refresh_token']
+                $tokens['access_token'],
+                $tokens['refresh_token']
             ),
             Response::HTTP_CREATED
         );
@@ -187,6 +174,53 @@ class UsersController extends AbstractController
             $user->toArray(),
             Response::HTTP_OK,
         );
+    }
+
+    private function deserializeRefreshToken(Request $request): string | JsonResponse
+    {
+        if ($request->getContentTypeFormat() !== 'json') {
+            return new JsonResponse(
+                UsersMessages::deserializationFailed(
+                    ['Unsupported content type']
+                ),
+                Response::HTTP_UNSUPPORTED_MEDIA_TYPE
+            );
+        }
+
+        try {
+            $data = json_decode(
+                $request->getContent(),
+                true
+            );
+
+            if (!isset($data['refresh_token'])) {
+                return new JsonResponse(
+                    UsersMessages::deserializationFailed(
+                        ['Field "refresh_token" is required.']
+                    ),
+                    Response::HTTP_BAD_REQUEST
+                );
+            }
+
+            if (!is_string($data['refresh_token'])) {
+                return new JsonResponse(
+                    UsersMessages::deserializationFailed(
+                        ['Field "refresh_token" must be a string.']
+                    ),
+                    Response::HTTP_BAD_REQUEST
+                );
+            }
+
+            return $data['refresh_token'];
+        } catch (NotEncodableValueException | UnexpectedValueException $e) {
+            return new JsonResponse(
+                UsersMessages::deserializationFailed(
+                    [$e->getMessage()]
+                ),
+                Response::HTTP_INTERNAL_SERVER_ERROR
+            );
+        }
+
     }
 
     private function deserializeUser(Request $request): User | JsonResponse

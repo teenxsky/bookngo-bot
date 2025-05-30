@@ -206,7 +206,7 @@ class BookingsServiceTest extends KernelTestCase
         $startDate = (new DateTimeImmutable())->modify('+5 week');
         $endDate   = (new DateTimeImmutable())->modify('+6 week');
 
-        $error = $this->bookingsService->createBooking(
+        $result = $this->bookingsService->createBooking(
             $this->testHouse1->getId(),
             $this->testUser1->getPhoneNumber(),
             'New booking comment',
@@ -214,7 +214,7 @@ class BookingsServiceTest extends KernelTestCase
             $endDate,
         );
 
-        $this->assertNull($error);
+        $this->assertNull($result);
 
         $bookings = $this->bookingsRepository->findAll();
         $this->assertCount(count($this->testBookings) + 1, $bookings);
@@ -227,7 +227,7 @@ class BookingsServiceTest extends KernelTestCase
     public function testCreateBookingWithInvalidDates(): void
     {
         // Past start date
-        $error = $this->bookingsService->createBooking(
+        $result = $this->bookingsService->createBooking(
             $this->testHouse1->getId(),
             '+1111222333',
             null,
@@ -237,20 +237,20 @@ class BookingsServiceTest extends KernelTestCase
             22222,
             'new_user'
         );
-        $this->assertNotNull($error);
+        $this->assertNotNull($result);
 
         // Start date after end date
-        $error = $this->bookingsService->createBooking(
+        $result = $this->bookingsService->createBooking(
             $this->testHouse1->getId(),
             '+1111222333',
             null,
-            new DateTimeImmutable('2025-01-10'),
             new DateTimeImmutable('2025-01-05'),
+            new DateTimeImmutable('2025-01-01'),
             11111,
             22222,
             'new_user'
         );
-        $this->assertNotNull($error);
+        $this->assertNotNull($result);
     }
 
     public function testCalculateTotalPrice(): void
@@ -298,17 +298,18 @@ class BookingsServiceTest extends KernelTestCase
         $updatedBooking = (new Booking())
             ->setComment('Updated comment');
 
-        $result = $this->bookingsService->updateBooking($updatedBooking, $booking->getId());
+        $validationError = $this->bookingsService->validateBookingUpdate($updatedBooking, $booking->getId());
+        $this->assertNull($validationError);
 
-        $this->assertNull($result['error']);
-        $this->assertNotNull($result['booking']);
+        $updatedBookingResult = $this->bookingsService->updateBooking($updatedBooking, $booking->getId());
+
         $this->assertEquals(
             'Updated comment',
-            $result['booking']->getComment()
+            $updatedBookingResult->getComment()
         );
         $this->assertEquals(
             $booking->getHouse()->getId(),
-            $result['booking']->getHouse()->getId()
+            $updatedBookingResult->getHouse()->getId()
         );
     }
 
@@ -322,17 +323,18 @@ class BookingsServiceTest extends KernelTestCase
             ->setEndDate(new DateTimeImmutable('2025-01-15'))
             ->setUser($this->testUser1);
 
-        $result = $this->bookingsService->replaceBooking($replacingBooking, $booking->getId());
+        $validationError = $this->bookingsService->validateBookingReplacement($replacingBooking, $booking->getId());
+        $this->assertNull($validationError);
 
-        $this->assertNull($result['error']);
-        $this->assertNotNull($result['booking']);
+        $replacedBooking = $this->bookingsService->replaceBooking($replacingBooking, $booking->getId());
+
         $this->assertEquals(
             'Replaced booking',
-            $result['booking']->getComment()
+            $replacedBooking->getComment()
         );
         $this->assertEquals(
             $this->testHouse2->getId(),
-            $result['booking']->getHouse()->getId()
+            $replacedBooking->getHouse()->getId()
         );
     }
 
@@ -341,13 +343,14 @@ class BookingsServiceTest extends KernelTestCase
         $bookingId = $this->testBookings[0]->getId();
 
         // Try to delete non-existent booking
-        $result = $this->bookingsService->deleteBooking(999);
-        $this->assertNotNull($result['error']);
+        $validationError = $this->bookingsService->validateBookingDeletion(999);
+        $this->assertNotNull($validationError);
 
         // Delete existing booking
-        $result = $this->bookingsService->deleteBooking($bookingId);
-        $this->assertNull($result['error']);
-        $this->assertNotNull($result['booking']);
+        $validationError = $this->bookingsService->validateBookingDeletion($bookingId);
+        $this->assertNull($validationError);
+
+        $this->bookingsService->deleteBooking($bookingId);
 
         $bookings = $this->bookingsService->findAllBookings();
         $this->assertCount(1, $bookings);
@@ -359,7 +362,7 @@ class BookingsServiceTest extends KernelTestCase
         $error = $this->bookingsService->validateHouseAvailability(
             $this->testHouse1,
             (new DateTimeImmutable())->modify('+3 week'),
-            new DateTimeImmutable('+4 week')
+            (new DateTimeImmutable())->modify('+4 week')
         );
 
         $this->assertNull($error);

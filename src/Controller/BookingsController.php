@@ -42,22 +42,13 @@ class BookingsController extends AbstractController
     #[Route('/', name: 'list', methods: ['GET'])]
     public function listBookings(#[CurrentUser] User $user): JsonResponse
     {
-        if (in_array(
-            'ROLE_ADMIN',
-            $user->getRoles(),
-            true
-        )) {
-            return new JsonResponse(
-                array_map(
-                    fn ($booking) => $booking->toArray(),
-                    $this->bookingsService->findAllBookings()
-                ),
-                Response::HTTP_OK
+        if ($this->usersService->isAdmin($user)) {
+            $bookings = array_map(
+                fn ($booking) => $booking->toArray(),
+                $this->bookingsService->findAllBookings()
             );
-        }
-
-        return new JsonResponse(
-            array_merge(
+        } else {
+            $bookings = array_merge(
                 array_map(
                     fn ($booking) => $booking->toArray(),
                     $this->bookingsService->findBookingsByUserId(
@@ -72,7 +63,11 @@ class BookingsController extends AbstractController
                         false
                     )
                 )
-            ),
+            );
+        }
+
+        return new JsonResponse(
+            $bookings,
             Response::HTTP_OK
         );
     }
@@ -85,15 +80,54 @@ class BookingsController extends AbstractController
             return $booking;
         }
 
-        $error = $this->entityValidator->validate($booking);
-        if ($error) {
+        $validationError = $this->entityValidator->validate($booking);
+        if ($validationError) {
             return new JsonResponse(
-                BookingsMessages::validationFailed($error),
+                BookingsMessages::validationFailed($validationError),
                 Response::HTTP_BAD_REQUEST
             );
         }
 
-        $error = $this->bookingsService->createBooking(
+        $validationError = $this->bookingsService->validateBookingCreation(
+            $booking->getHouse() ? $booking->getHouse()->getId() : -1,
+            $user->getPhoneNumber(),
+            $booking->getStartDate(),
+            $booking->getEndDate()
+        );
+
+        if ($validationError) {
+            if ($validationError === UsersMessages::NOT_FOUND) {
+                return new JsonResponse(
+                    UsersMessages::notFound(),
+                    Response::HTTP_NOT_FOUND
+                );
+            }
+
+            if ($validationError === HousesMessages::NOT_FOUND) {
+                return new JsonResponse(
+                    HousesMessages::notFound(),
+                    Response::HTTP_NOT_FOUND
+                );
+            }
+
+            if ($validationError === HousesMessages::NOT_AVAILABLE) {
+                return new JsonResponse(
+                    HousesMessages::notAvailable(),
+                    Response::HTTP_BAD_REQUEST
+                );
+            }
+
+            if (
+                $validationError === BookingsMessages::PAST_START_DATE || $validationError === BookingsMessages::PAST_END_DATE
+            ) {
+                return new JsonResponse(
+                    BookingsMessages::validationFailed([$validationError]),
+                    Response::HTTP_BAD_REQUEST
+                );
+            }
+        }
+
+        $bookingError = $this->bookingsService->createBooking(
             $booking->getHouse() ? $booking->getHouse()->getId() : -1,
             $user->getPhoneNumber(),
             $booking->getComment(),
@@ -101,21 +135,21 @@ class BookingsController extends AbstractController
             $booking->getEndDate(),
         );
 
-        if ($error === UsersMessages::NOT_FOUND) {
+        if ($bookingError === UsersMessages::NOT_FOUND) {
             return new JsonResponse(
                 UsersMessages::notFound(),
                 Response::HTTP_NOT_FOUND
             );
         }
 
-        if ($error === HousesMessages::NOT_FOUND) {
+        if ($bookingError === HousesMessages::NOT_FOUND) {
             return new JsonResponse(
                 HousesMessages::notFound(),
                 Response::HTTP_NOT_FOUND
             );
         }
 
-        if ($error === HousesMessages::NOT_AVAILABLE) {
+        if ($bookingError === HousesMessages::NOT_AVAILABLE) {
             return new JsonResponse(
                 HousesMessages::notAvailable(),
                 Response::HTTP_BAD_REQUEST
@@ -123,10 +157,10 @@ class BookingsController extends AbstractController
         }
 
         if (
-            $error === BookingsMessages::PAST_START_DATE || $error === BookingsMessages::PAST_END_DATE
+            $bookingError === BookingsMessages::PAST_START_DATE || $bookingError === BookingsMessages::PAST_END_DATE
         ) {
             return new JsonResponse(
-                BookingsMessages::validationFailed([$error]),
+                BookingsMessages::validationFailed([$bookingError]),
                 Response::HTTP_BAD_REQUEST
             );
         }
@@ -149,7 +183,7 @@ class BookingsController extends AbstractController
             );
         }
 
-        $isAdmin = in_array('ROLE_ADMIN', $user->getRoles(), true);
+        $isAdmin = $this->usersService->isAdmin($user);
         $isOwner = $booking->getUser()->getId() === $user->getId();
         if (!$isAdmin && !$isOwner) {
             return new JsonResponse(
@@ -177,11 +211,11 @@ class BookingsController extends AbstractController
             return $booking;
         }
 
-        $error = $this->entityValidator->validate($booking);
-        if ($error) {
+        $validationError = $this->entityValidator->validate($booking);
+        if ($validationError) {
             return new JsonResponse(
                 BookingsMessages::validationFailed(
-                    $error
+                    $validationError
                 ),
                 Response::HTTP_BAD_REQUEST
             );
@@ -195,7 +229,7 @@ class BookingsController extends AbstractController
             );
         }
 
-        $isAdmin = in_array('ROLE_ADMIN', $user->getRoles(), true);
+        $isAdmin = $this->usersService->isAdmin($user);
         $isOwner = $existingBooking->getUser()->getId() === $user->getId();
         if (!$isAdmin && !$isOwner) {
             return new JsonResponse(
@@ -208,13 +242,22 @@ class BookingsController extends AbstractController
 
         $booking->setUser($user);
 
-        $result = $this->bookingsService->replaceBooking($booking, $id);
-        if ($result['error'] === HousesMessages::NOT_AVAILABLE) {
+        $validationError = $this->bookingsService->validateBookingReplacement($booking, $id);
+        if ($validationError === BookingsMessages::NOT_FOUND) {
+            return new JsonResponse(
+                BookingsMessages::notFound(),
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        if ($validationError === HousesMessages::NOT_AVAILABLE) {
             return new JsonResponse(
                 HousesMessages::notAvailable(),
                 Response::HTTP_BAD_REQUEST
             );
         }
+
+        $this->bookingsService->replaceBooking($booking, $id);
 
         return new JsonResponse(
             BookingsMessages::replaced(),
@@ -241,7 +284,7 @@ class BookingsController extends AbstractController
             );
         }
 
-        $isAdmin = in_array('ROLE_ADMIN', $user->getRoles(), true);
+        $isAdmin = $this->usersService->isAdmin($user);
         $isOwner = $existingBooking->getUser()->getId() === $user->getId();
         if (!$isAdmin && !$isOwner) {
             return new JsonResponse(
@@ -254,13 +297,22 @@ class BookingsController extends AbstractController
 
         $booking->setUser($user);
 
-        $result = $this->bookingsService->updateBooking($booking, $id);
-        if ($result['error'] === HousesMessages::NOT_AVAILABLE) {
+        $validationError = $this->bookingsService->validateBookingUpdate($booking, $id);
+        if ($validationError === BookingsMessages::NOT_FOUND) {
+            return new JsonResponse(
+                BookingsMessages::notFound(),
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        if ($validationError === HousesMessages::NOT_AVAILABLE) {
             return new JsonResponse(
                 HousesMessages::notAvailable(),
                 Response::HTTP_BAD_REQUEST
             );
         }
+
+        $this->bookingsService->updateBooking($booking, $id);
 
         return new JsonResponse(
             BookingsMessages::updated(),
@@ -281,7 +333,7 @@ class BookingsController extends AbstractController
             );
         }
 
-        $isAdmin = in_array('ROLE_ADMIN', $user->getRoles(), true);
+        $isAdmin = $this->usersService->isAdmin($user);
         $isOwner = $booking->getUser()->getId() === $user->getId();
         if (!$isAdmin && !$isOwner) {
             return new JsonResponse(
@@ -292,13 +344,15 @@ class BookingsController extends AbstractController
             );
         }
 
-        $result = $this->bookingsService->deleteBooking($id);
-        if ($result['error'] === BookingsMessages::NOT_FOUND) {
+        $validationError = $this->bookingsService->validateBookingDeletion($id);
+        if ($validationError === BookingsMessages::NOT_FOUND) {
             return new JsonResponse(
                 BookingsMessages::notFound(),
                 Response::HTTP_NOT_FOUND
             );
         }
+
+        $this->bookingsService->deleteBooking($id);
 
         return new JsonResponse(
             BookingsMessages::deleted(),
@@ -333,12 +387,12 @@ class BookingsController extends AbstractController
             );
 
             if (isset($data['house_id'])) {
-                $result = $this->housesService->findHouseById(
+                $house = $this->housesService->findHouseById(
                     (int) $data['house_id']
                 );
 
-                if ($result['house']) {
-                    $booking->setHouse($result['house']);
+                if ($house) {
+                    $booking->setHouse($house);
                 }
             }
 
