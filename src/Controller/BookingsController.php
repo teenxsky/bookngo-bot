@@ -52,15 +52,15 @@ class BookingsController extends AbstractController
                 array_map(
                     fn ($booking) => $booking->toArray(),
                     $this->bookingsService->findBookingsByUserId(
-                        $user->getId(),
-                        true
+                        userId: $user->getId(),
+                        isActual: true
                     )
                 ),
                 array_map(
                     fn ($booking) => $booking->toArray(),
                     $this->bookingsService->findBookingsByUserId(
-                        $user->getId(),
-                        false
+                        userId: $user->getId(),
+                        isActual: false
                     )
                 )
             );
