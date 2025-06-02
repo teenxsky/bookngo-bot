@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\ApiDoc\ApiEndpoint;
+use App\ApiDoc\ApiResponse;
 use App\Constant\BookingsMessages;
 use App\Constant\HousesMessages;
 use App\Constant\UsersMessages;
@@ -17,6 +19,8 @@ use App\Service\HousesService;
 use App\Service\UsersService;
 use App\Validator\DTOValidator;
 use Exception;
+use Nelmio\ApiDocBundle\Annotation\Model;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,6 +29,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 #[Route('/api/v1/bookings', name: 'api_v1_bookings_')]
+#[OA\Tag(name: 'Bookings')]
 class BookingsController extends AbstractController
 {
     public function __construct(
@@ -38,6 +43,25 @@ class BookingsController extends AbstractController
     }
 
     #[Route('/', name: 'list', methods: ['GET'])]
+    #[ApiEndpoint(
+        method: 'GET',
+        path: '/api/v1/bookings/',
+        summary: 'Get list of bookings',
+        description: 'Retrieves all bookings accessible to current user. Admin users get all bookings.',
+        requiresAuth: true,
+        responses: [
+            new ApiResponse(
+                responseCode: Response::HTTP_OK,
+                description: 'List of bookings',
+                content: new OA\JsonContent(
+                    type: 'array',
+                    items: new OA\Items(
+                        ref: new Model(type: BookingDTO::class, groups: ['read'])
+                    )
+                )
+            )
+        ]
+    )]
     public function listBookings(#[CurrentUser] User $user): JsonResponse
     {
         if ($this->usersService->isAdmin($user)) {
@@ -69,6 +93,33 @@ class BookingsController extends AbstractController
     }
 
     #[Route('/', name: 'add', methods: ['POST'])]
+    #[ApiEndpoint(
+        method: 'POST',
+        requiresAuth: true,
+        path: '/api/v1/bookings/',
+        summary: 'Create a new booking',
+        description: 'Creates a new booking for the authenticated user.',
+        requestBody: new OA\RequestBody(
+            description: 'Booking data',
+            required: true,
+            content: new Model(type: BookingDTO::class, groups: ['write'])
+        ),
+        responses: [
+            new ApiResponse(
+                responseCode: Response::HTTP_CREATED,
+                description: 'Booking created successfully',
+                messageExample: BookingsMessages::CREATED
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_BAD_REQUEST,
+                description: 'Validation or Deserialization error',
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_NOT_FOUND,
+                description: 'House or User not found',
+            ),
+        ]
+    )]
     public function addBooking(Request $request, #[CurrentUser] User $user): JsonResponse
     {
         try {
@@ -176,6 +227,38 @@ class BookingsController extends AbstractController
     }
 
     #[Route('/{id}', name: 'get_by_id', methods: ['GET'])]
+    #[ApiEndpoint(
+        method: 'GET',
+        requiresAuth: true,
+        path: '/api/v1/bookings/{id}',
+        summary: 'Get booking by ID',
+        description: 'Retrieves booking details by ID. User can only get their own bookings, admin can get any booking.',
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                description: 'Booking ID',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer')
+            )
+        ],
+        responses: [
+            new ApiResponse(
+                responseCode: Response::HTTP_OK,
+                description: 'Booking information',
+                content: new Model(type: BookingDTO::class, groups: ['read'])
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_FORBIDDEN,
+                description: 'User tries to get other users bookings',
+                messageExample: BookingsMessages::ACCESS_DENIED
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_NOT_FOUND,
+                description: 'Booking not found',
+            ),
+        ]
+    )]
     public function getBooking(int $id, #[CurrentUser] User $user): JsonResponse
     {
         $booking = $this->bookingsService->findBookingById($id);
@@ -207,6 +290,47 @@ class BookingsController extends AbstractController
     }
 
     #[Route('/{id}', name: 'replace_by_id', methods: ['PUT'])]
+    #[ApiEndpoint(
+        method: 'PUT',
+        requiresAuth: true,
+        path: '/api/v1/bookings/{id}',
+        summary: 'Replace booking by ID',
+        description: 'Replaces booking details by ID. User can only replace their own bookings, admin can replace any booking.',
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                description: 'Booking ID',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer')
+            )
+        ],
+        requestBody: new OA\RequestBody(
+            description: 'Booking data',
+            required: true,
+            content: new Model(type: BookingDTO::class, groups: ['write'])
+        ),
+        responses: [
+            new ApiResponse(
+                responseCode: Response::HTTP_OK,
+                description: 'Booking replaced successfully',
+                messageExample: BookingsMessages::REPLACED
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_BAD_REQUEST,
+                description: 'Validation or Deserialization error',
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_FORBIDDEN,
+                description: 'User tries to replace other users bookings',
+                messageExample: BookingsMessages::ACCESS_DENIED
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_NOT_FOUND,
+                description: 'House or Booking not found',
+            ),
+        ]
+    )]
     public function replaceBooking(
         Request $request,
         int $id,
@@ -293,6 +417,47 @@ class BookingsController extends AbstractController
     }
 
     #[Route('/{id}', name: 'update_by_id', methods: ['PATCH'])]
+    #[ApiEndpoint(
+        method: 'PATCH',
+        requiresAuth: true,
+        path: '/api/v1/bookings/{id}',
+        summary: 'Update booking by ID',
+        description: 'Updates booking details by ID. User can only update their own bookings, admin can update any booking.',
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                description: 'Booking ID',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer')
+            )
+        ],
+        requestBody: new OA\RequestBody(
+            description: 'Booking data (At least one field of entity is required)',
+            required: true,
+            content: new Model(type: BookingDTO::class, groups: ['write'])
+        ),
+        responses: [
+            new ApiResponse(
+                responseCode: Response::HTTP_OK,
+                description: 'Booking updated successfully',
+                messageExample: BookingsMessages::UPDATED
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_BAD_REQUEST,
+                description: 'Validation or Deserialization error',
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_FORBIDDEN,
+                description: 'User tries to update other users bookings',
+                messageExample: BookingsMessages::ACCESS_DENIED
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_NOT_FOUND,
+                description: 'Booking or House not found',
+            ),
+        ]
+    )]
     public function updateBooking(
         Request $request,
         int $id,
@@ -342,13 +507,12 @@ class BookingsController extends AbstractController
         }
 
         $validationError = $this->bookingsService->validateBookingUpdate($booking, $id);
-        if ($validationError === BookingsMessages::NOT_FOUND) {
+        if ($validationError === HousesMessages::NOT_FOUND) {
             return new JsonResponse(
                 BookingsMessages::notFound(),
                 Response::HTTP_NOT_FOUND
             );
         }
-
         if ($validationError === HousesMessages::NOT_AVAILABLE) {
             return new JsonResponse(
                 HousesMessages::notAvailable(),
@@ -365,12 +529,44 @@ class BookingsController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete_by_id', methods: ['DELETE'])]
+    #[ApiEndpoint(
+        method: 'DELETE',
+        requiresAuth: true,
+        path: '/api/v1/bookings/{id}',
+        summary: 'Delete booking by ID',
+        description: 'Deletes booking by ID. User can only delete their own bookings, admin can delete any booking.',
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                description: 'Booking ID',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer')
+            )
+        ],
+        responses: [
+            new ApiResponse(
+                responseCode: Response::HTTP_OK,
+                description: 'Booking deleted successfully',
+                messageExample: BookingsMessages::DELETED
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_FORBIDDEN,
+                description: 'User tries to delete other users bookings',
+                messageExample: BookingsMessages::ACCESS_DENIED
+            ),
+            new ApiResponse(
+                responseCode: Response::HTTP_NOT_FOUND,
+                description: 'Booking not found',
+            ),
+        ]
+    )]
     public function deleteBooking(
         int $id,
         #[CurrentUser] User $user
     ): JsonResponse {
         $booking = $this->bookingsService->findBookingById($id);
-        if (!$booking) {
+        if ($booking === null) {
             return new JsonResponse(
                 BookingsMessages::notFound(),
                 Response::HTTP_NOT_FOUND
@@ -385,14 +581,6 @@ class BookingsController extends AbstractController
                     ['You cannot delete other users bookings']
                 ),
                 Response::HTTP_FORBIDDEN
-            );
-        }
-
-        $validationError = $this->bookingsService->validateBookingDeletion($id);
-        if ($validationError === BookingsMessages::NOT_FOUND) {
-            return new JsonResponse(
-                BookingsMessages::notFound(),
-                Response::HTTP_NOT_FOUND
             );
         }
 

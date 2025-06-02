@@ -439,7 +439,7 @@ class BookingsControllerTest extends WebTestCase
             true
         );
         $this->assertEquals(
-            'Validation failed',
+            BookingsMessages::VALIDATION_FAILED,
             $responseData['message']
         );
         $this->assertArrayHasKey('errors', $responseData);

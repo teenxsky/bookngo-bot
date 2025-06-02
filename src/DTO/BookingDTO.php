@@ -7,6 +7,7 @@ namespace App\DTO;
 use App\Entity\Booking;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use OpenApi\Attributes as OA;
 use Override;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -32,11 +33,13 @@ class BookingDTO extends BaseDTO
     #[Assert\NotNull]
     #[Assert\Type(DateTimeImmutable::class)]
     #[Groups(['read', 'write'])]
+    #[OA\Property(example: '2025-05-20')]
     public ?DateTimeImmutable $startDate = null;
 
     #[Assert\NotNull]
     #[Assert\Type(DateTimeImmutable::class)]
     #[Groups(['read', 'write'])]
+    #[OA\Property(example: '2025-06-20')]
     public ?DateTimeImmutable $endDate = null;
 
     #[Groups(['read'])]

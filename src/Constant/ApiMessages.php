@@ -12,9 +12,9 @@ namespace App\Constant;
  */
 class ApiMessages
 {
-    public const ACCESS_DENIED          = 'Access denied';
-    public const VALIDATION_FAILED      = 'Validation failed';
-    public const DESERIALIZATION_FAILED = 'Deserialization failed';
+    public const ACCESS_DENIED          = 'Access denied.';
+    public const VALIDATION_FAILED      = 'Validation failed.';
+    public const DESERIALIZATION_FAILED = 'Deserialization failed.';
 
     /**
      * @param string $message

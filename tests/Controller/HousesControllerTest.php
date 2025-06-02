@@ -338,7 +338,7 @@ class HousesControllerTest extends WebTestCase
         $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
 
         $responseData = json_decode($response->getContent(), true);
-        $this->assertEquals('Validation failed', $responseData['message']);
+        $this->assertEquals(HousesMessages::VALIDATION_FAILED, $responseData['message']);
         $this->assertArrayHasKey('errors', $responseData);
         $this->assertNotEmpty($responseData['errors']);
     }

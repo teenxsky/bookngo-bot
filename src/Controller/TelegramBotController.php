@@ -88,7 +88,7 @@ class TelegramBotController extends AbstractController
             $this->logger->critical($message);
         }
 
-        return new JsonResponse(status: Response::HTTP_NO_CONTENT);
+        return new JsonResponse(status: Response::HTTP_OK);
     }
 
     private function handleMessage(Update $update): void
