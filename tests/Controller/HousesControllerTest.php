@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Controller;
 
 use App\Constant\HousesMessages;
+use App\DTO\DTOFactory;
 use App\Entity\City;
 use App\Entity\Country;
 use App\Entity\House;
@@ -30,6 +31,8 @@ class HousesControllerTest extends WebTestCase
     private static CitiesRepository $citiesRepository;
     /** @var CountriesRepository $countriesRepository */
     private static CountriesRepository $countriesRepository;
+
+    private DTOFactory $dtoFactory;
 
     private static KernelBrowser $client;
     private EntityManagerInterface $entityManager;
@@ -165,6 +168,8 @@ class HousesControllerTest extends WebTestCase
         self::$housesRepository = $this->entityManager->getRepository(
             House::class
         );
+
+        $this->dtoFactory = new DTOFactory();
     }
 
     private function assertResponse(
@@ -195,8 +200,10 @@ class HousesControllerTest extends WebTestCase
     public function testListHouses(): void
     {
         $expectedHouses = array_map(
-            fn ($house) => $house->toArray(),
-            self::$housesRepository->findAll()
+            fn ($dto) => $dto->toArray(),
+            $this->dtoFactory->createFromEntities(
+                self::$housesRepository->findAll()
+            )
         );
 
         self::$client->request(
@@ -219,7 +226,9 @@ class HousesControllerTest extends WebTestCase
     public function testGetHouseById(): void
     {
         $houseId       = 1;
-        $expectedHouse = self::$housesRepository->find($houseId)->toArray();
+        $expectedHouse = $this->dtoFactory->createFromEntity(
+            self::$housesRepository->find($houseId)
+        )->toArray();
 
         self::$client->request(
             'GET',

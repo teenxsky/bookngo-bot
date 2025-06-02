@@ -4,63 +4,106 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\Constant\CitiesMessages;
 use App\Constant\HousesMessages;
+use App\DTO\DTOFactory;
+use App\DTO\HouseDTO;
 use App\Entity\House;
+use App\Serializer\DTOSerializer;
 use App\Service\CitiesService;
 use App\Service\HousesService;
-use App\Validator\EntityValidator;
+use App\Validator\DTOValidator;
+use Exception;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Serializer\Exception\NotEncodableValueException;
-use Symfony\Component\Serializer\Exception\UnexpectedValueException;
-use Symfony\Component\Serializer\SerializerInterface;
-use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/api/v1/houses', name: 'api_v1_houses_')]
 class HousesController extends AbstractController
 {
-    private EntityValidator $entityValidator;
-
     public function __construct(
         private HousesService $housesService,
         private CitiesService $citiesService,
-        private SerializerInterface $serializer,
-        private ValidatorInterface $validator
+        private DTOSerializer $dtoSerializer,
+        private DTOValidator $dtoValidator,
+        private DTOFactory $dtoFactory
     ) {
-        $this->entityValidator = new EntityValidator($validator);
     }
 
     #[Route('/', name: 'list', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/v1/houses/',
+        summary: 'Get list of houses',
+        description: 'Retrieves all houses'
+    )]
+    #[OA\Response(
+        response: Response::HTTP_OK,
+        description: 'List of houses',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(
+                properties: [
+                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'address', type: 'string'),
+                    new OA\Property(property: 'price_per_night', type: 'number', format: 'float'),
+                    new OA\Property(property: 'bedrooms_count', type: 'integer'),
+                    new OA\Property(property: 'has_wifi', type: 'boolean'),
+                    new OA\Property(property: 'has_kitchen', type: 'boolean'),
+                    new OA\Property(property: 'has_air_conditioning', type: 'boolean'),
+                    new OA\Property(property: 'has_parking', type: 'boolean'),
+                    new OA\Property(property: 'has_sea_view', type: 'boolean'),
+                    new OA\Property(property: 'image_url', type: 'string', nullable: true),
+                    new OA\Property(property: 'city', type: 'object')
+                ]
+            )
+        )
+    )]
     public function listHouses(): JsonResponse
     {
-        $houses = array_map(
-            fn ($booking) => $booking->toArray(),
+        $houseDTOs = $this->dtoFactory->createFromEntities(
             $this->housesService->findAllHouses()
         );
 
-        return new JsonResponse($houses, Response::HTTP_OK);
+        return new JsonResponse(
+            array_map(fn ($dto) => $dto->toArray(), $houseDTOs),
+            Response::HTTP_OK
+        );
     }
 
     #[Route('/', name: 'add', methods: ['POST'])]
     public function addHouse(Request $request): JsonResponse
     {
-        $house = $this->deserializeHouse($request);
-        if ($house instanceof JsonResponse) {
-            return $house;
-        }
-
-        $validationError = $this->entityValidator->validate($house);
-        if ($validationError) {
+        try {
+            /** @var HouseDTO $houseDTO */
+            $houseDTO = $this->dtoSerializer->deserialize(
+                $request,
+                HouseDTO::class,
+            );
+        } catch (Exception $e) {
             return new JsonResponse(
-                HousesMessages::validationFailed(
-                    $validationError
-                ),
+                HousesMessages::deserializationFailed([$e->getMessage()]),
                 Response::HTTP_BAD_REQUEST
             );
+        }
+
+        $validationErrors = $this->dtoValidator->validate($houseDTO);
+        if ($validationErrors) {
+            return new JsonResponse(
+                HousesMessages::validationFailed($validationErrors),
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        $house = new House();
+        $this->dtoFactory->mapToEntity($houseDTO, $house);
+
+        if ($houseDTO->cityId) {
+            $city = $this->citiesService->findCityById($houseDTO->cityId);
+            if ($city) {
+                $house->setCity($city);
+            }
         }
 
         $this->housesService->addHouse($house);
@@ -74,31 +117,42 @@ class HousesController extends AbstractController
     public function getHouse(int $id): JsonResponse
     {
         $house = $this->housesService->findHouseById($id);
-        return $house
-            ? new JsonResponse(
-                $house->toArray(),
-                Response::HTTP_OK
-            )
-            : new JsonResponse(
+
+        if (!$house) {
+            return new JsonResponse(
                 HousesMessages::notFound(),
                 Response::HTTP_NOT_FOUND
             );
+        }
+
+        $houseDTO = HouseDTO::createFromEntity($house);
+
+        return new JsonResponse(
+            $houseDTO->toArray(),
+            Response::HTTP_OK
+        );
     }
 
     #[Route('/{id}', name: 'replace_by_id', methods: ['PUT'])]
     public function replaceHouse(Request $request, int $id): JsonResponse
     {
-        $replacingHouse = $this->deserializeHouse($request);
-        if ($replacingHouse instanceof JsonResponse) {
-            return $replacingHouse;
+        try {
+            /** @var HouseDTO $houseDTO */
+            $houseDTO = $this->dtoSerializer->deserialize(
+                $request,
+                HouseDTO::class,
+            );
+        } catch (Exception $e) {
+            return new JsonResponse(
+                HousesMessages::deserializationFailed([$e->getMessage()]),
+                Response::HTTP_BAD_REQUEST
+            );
         }
 
-        $validationError = $this->entityValidator->validate($replacingHouse);
-        if ($validationError) {
+        $validationErrors = $this->dtoValidator->validate($houseDTO);
+        if ($validationErrors) {
             return new JsonResponse(
-                HousesMessages::validationFailed(
-                    $validationError
-                ),
+                HousesMessages::validationFailed($validationErrors),
                 Response::HTTP_BAD_REQUEST
             );
         }
@@ -111,7 +165,17 @@ class HousesController extends AbstractController
             );
         }
 
-        $this->housesService->replaceHouse($replacingHouse, $id);
+        $house = new House();
+        $this->dtoFactory->mapToEntity($houseDTO, $house);
+
+        if ($houseDTO->cityId) {
+            $city = $this->citiesService->findCityById($houseDTO->cityId);
+            if ($city) {
+                $house->setCity($city);
+            }
+        }
+
+        $this->housesService->replaceHouse($house, $id);
         return new JsonResponse(
             HousesMessages::replaced(),
             Response::HTTP_OK
@@ -121,9 +185,17 @@ class HousesController extends AbstractController
     #[Route('/{id}', name: 'update_by_id', methods: ['PATCH'])]
     public function updateHouse(Request $request, int $id): JsonResponse
     {
-        $updatedHouse = $this->deserializeHouse($request);
-        if ($updatedHouse instanceof JsonResponse) {
-            return $updatedHouse;
+        try {
+            /** @var HouseDTO $houseDTO */
+            $houseDTO = $this->dtoSerializer->deserialize(
+                $request,
+                HouseDTO::class,
+            );
+        } catch (Exception $e) {
+            return new JsonResponse(
+                HousesMessages::deserializationFailed([$e->getMessage()]),
+                Response::HTTP_BAD_REQUEST
+            );
         }
 
         $validationError = $this->housesService->validateHouseUpdate($id);
@@ -134,7 +206,17 @@ class HousesController extends AbstractController
             );
         }
 
-        $this->housesService->updateHouseFields($updatedHouse, $id);
+        $house = new House();
+        $this->dtoFactory->mapToEntity($houseDTO, $house);
+
+        if ($houseDTO->cityId) {
+            $city = $this->citiesService->findCityById($houseDTO->cityId);
+            if ($city) {
+                $house->setCity($city);
+            }
+        }
+
+        $this->housesService->updateHouseFields($house, $id);
         return new JsonResponse(
             HousesMessages::updated(),
             Response::HTTP_OK
@@ -165,56 +247,5 @@ class HousesController extends AbstractController
             HousesMessages::deleted(),
             Response::HTTP_OK
         );
-    }
-
-    private function deserializeHouse(Request $request): House | JsonResponse
-    {
-        if ($request->getContentTypeFormat() !== 'json') {
-            return new JsonResponse(
-                HousesMessages::deserializationFailed(
-                    ['Unsupported content type']
-                ),
-                Response::HTTP_UNSUPPORTED_MEDIA_TYPE
-            );
-        }
-
-        try {
-            $data = array_filter(
-                json_decode(
-                    $request->getContent(),
-                    true
-                ),
-                fn ($value) => $value !== null
-            );
-
-            $house = $this->serializer->deserialize(
-                json_encode($data),
-                House::class,
-                'json'
-            );
-
-            if (isset($data['city_id'])) {
-                $city = $this->citiesService->findCityById($data['city_id']);
-
-                if (!$city) {
-                    return new JsonResponse(
-                        HousesMessages::deserializationFailed(
-                            [CitiesMessages::NOT_FOUND]
-                        ),
-                        Response::HTTP_BAD_REQUEST
-                    );
-                }
-                $house->setCity($city);
-            }
-
-            return $house;
-        } catch (NotEncodableValueException | UnexpectedValueException $e) {
-            return new JsonResponse(
-                HousesMessages::deserializationFailed(
-                    [$e->getMessage()]
-                ),
-                Response::HTTP_BAD_REQUEST
-            );
-        }
     }
 }

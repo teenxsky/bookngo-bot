@@ -7,67 +7,63 @@ namespace App\Controller;
 use App\Constant\BookingsMessages;
 use App\Constant\HousesMessages;
 use App\Constant\UsersMessages;
+use App\DTO\BookingDTO;
+use App\DTO\DTOFactory;
 use App\Entity\Booking;
 use App\Entity\User;
+use App\Serializer\DTOSerializer;
 use App\Service\BookingsService;
 use App\Service\HousesService;
 use App\Service\UsersService;
-use App\Validator\EntityValidator;
+use App\Validator\DTOValidator;
+use Exception;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
-use Symfony\Component\Serializer\Exception\NotEncodableValueException;
-use Symfony\Component\Serializer\Exception\UnexpectedValueException;
-use Symfony\Component\Serializer\SerializerInterface;
-use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/api/v1/bookings', name: 'api_v1_bookings_')]
 class BookingsController extends AbstractController
 {
-    private EntityValidator $entityValidator;
-
     public function __construct(
         private BookingsService $bookingsService,
         private HousesService $housesService,
         private UsersService $usersService,
-        private SerializerInterface $serializer,
-        private ValidatorInterface $validator
+        private DTOSerializer $dtoSerializer,
+        private DTOValidator $dtoValidator,
+        private DTOFactory $dtoFactory
     ) {
-        $this->entityValidator = new EntityValidator($validator);
     }
 
     #[Route('/', name: 'list', methods: ['GET'])]
     public function listBookings(#[CurrentUser] User $user): JsonResponse
     {
         if ($this->usersService->isAdmin($user)) {
-            $bookings = array_map(
-                fn ($booking) => $booking->toArray(),
+            $bookings = $this->dtoFactory->createFromEntities(
                 $this->bookingsService->findAllBookings()
             );
         } else {
-            $bookings = array_merge(
-                array_map(
-                    fn ($booking) => $booking->toArray(),
-                    $this->bookingsService->findBookingsByUserId(
-                        $user->getId(),
-                        true
-                    )
-                ),
-                array_map(
-                    fn ($booking) => $booking->toArray(),
-                    $this->bookingsService->findBookingsByUserId(
-                        $user->getId(),
-                        false
-                    )
+            $actualBookings = $this->dtoFactory->createFromEntities(
+                $this->bookingsService->findBookingsByUserId(
+                    $user->getId(),
+                    true
                 )
             );
+
+            $archivedBookings = $this->dtoFactory->createFromEntities(
+                $this->bookingsService->findBookingsByUserId(
+                    $user->getId(),
+                    false
+                )
+            );
+
+            $bookings = array_merge($actualBookings, $archivedBookings);
         }
 
         return new JsonResponse(
-            $bookings,
+            array_map(fn ($dto) => $dto->toArray(), $bookings),
             Response::HTTP_OK
         );
     }
@@ -75,24 +71,32 @@ class BookingsController extends AbstractController
     #[Route('/', name: 'add', methods: ['POST'])]
     public function addBooking(Request $request, #[CurrentUser] User $user): JsonResponse
     {
-        $booking = $this->deserializeBooking($request);
-        if ($booking instanceof JsonResponse) {
-            return $booking;
+        try {
+            /** @var BookingDTO $bookingDTO */
+            $bookingDTO = $this->dtoSerializer->deserialize(
+                $request,
+                BookingDTO::class,
+            );
+        } catch (Exception $e) {
+            return new JsonResponse(
+                BookingsMessages::deserializationFailed([$e->getMessage()]),
+                Response::HTTP_BAD_REQUEST
+            );
         }
 
-        $validationError = $this->entityValidator->validate($booking);
-        if ($validationError) {
+        $validationErrors = $this->dtoValidator->validate($bookingDTO);
+        if ($validationErrors) {
             return new JsonResponse(
-                BookingsMessages::validationFailed($validationError),
+                BookingsMessages::validationFailed($validationErrors),
                 Response::HTTP_BAD_REQUEST
             );
         }
 
         $validationError = $this->bookingsService->validateBookingCreation(
-            $booking->getHouse() ? $booking->getHouse()->getId() : -1,
+            $bookingDTO->houseId ?? -1,
             $user->getPhoneNumber(),
-            $booking->getStartDate(),
-            $booking->getEndDate()
+            $bookingDTO->startDate,
+            $bookingDTO->endDate
         );
 
         if ($validationError) {
@@ -128,11 +132,11 @@ class BookingsController extends AbstractController
         }
 
         $bookingError = $this->bookingsService->createBooking(
-            $booking->getHouse() ? $booking->getHouse()->getId() : -1,
+            $bookingDTO->houseId ?? -1,
             $user->getPhoneNumber(),
-            $booking->getComment(),
-            $booking->getStartDate(),
-            $booking->getEndDate(),
+            $bookingDTO->comment,
+            $bookingDTO->startDate,
+            $bookingDTO->endDate,
         );
 
         if ($bookingError === UsersMessages::NOT_FOUND) {
@@ -187,15 +191,17 @@ class BookingsController extends AbstractController
         $isOwner = $booking->getUser()->getId() === $user->getId();
         if (!$isAdmin && !$isOwner) {
             return new JsonResponse(
-                BookingsMessages::validationFailed(
+                BookingsMessages::accessDenied(
                     ['You cannot get other users bookings']
                 ),
                 Response::HTTP_FORBIDDEN
             );
         }
 
+        $bookingDTO = BookingDTO::createFromEntity($booking);
+
         return new JsonResponse(
-            $booking->toArray(),
+            $bookingDTO->toArray(),
             Response::HTTP_OK
         );
     }
@@ -206,17 +212,23 @@ class BookingsController extends AbstractController
         int $id,
         #[CurrentUser] User $user
     ): JsonResponse {
-        $booking = $this->deserializeBooking($request);
-        if ($booking instanceof JsonResponse) {
-            return $booking;
+        try {
+            /** @var BookingDTO $bookingDTO */
+            $bookingDTO = $this->dtoSerializer->deserialize(
+                $request,
+                BookingDTO::class,
+            );
+        } catch (Exception $e) {
+            return new JsonResponse(
+                BookingsMessages::deserializationFailed([$e->getMessage()]),
+                Response::HTTP_BAD_REQUEST
+            );
         }
 
-        $validationError = $this->entityValidator->validate($booking);
-        if ($validationError) {
+        $validationErrors = $this->dtoValidator->validate($bookingDTO);
+        if ($validationErrors) {
             return new JsonResponse(
-                BookingsMessages::validationFailed(
-                    $validationError
-                ),
+                BookingsMessages::validationFailed($validationErrors),
                 Response::HTTP_BAD_REQUEST
             );
         }
@@ -233,14 +245,29 @@ class BookingsController extends AbstractController
         $isOwner = $existingBooking->getUser()->getId() === $user->getId();
         if (!$isAdmin && !$isOwner) {
             return new JsonResponse(
-                BookingsMessages::validationFailed(
+                BookingsMessages::accessDenied(
                     ['You cannot replace other users bookings']
                 ),
                 Response::HTTP_FORBIDDEN
             );
         }
 
+        $booking = new Booking();
+        $this->dtoFactory->mapToEntity($bookingDTO, $booking);
         $booking->setUser($user);
+
+        if ($bookingDTO->startDate) {
+            $booking->setStartDate($bookingDTO->startDate);
+        }
+        if ($bookingDTO->endDate) {
+            $booking->setEndDate($bookingDTO->endDate);
+        }
+        if ($bookingDTO->houseId) {
+            $house = $this->housesService->findHouseById($bookingDTO->houseId);
+            if ($house) {
+                $booking->setHouse($house);
+            }
+        }
 
         $validationError = $this->bookingsService->validateBookingReplacement($booking, $id);
         if ($validationError === BookingsMessages::NOT_FOUND) {
@@ -271,9 +298,17 @@ class BookingsController extends AbstractController
         int $id,
         #[CurrentUser] User $user
     ): JsonResponse {
-        $booking = $this->deserializeBooking($request);
-        if ($booking instanceof JsonResponse) {
-            return $booking;
+        try {
+            /** @var BookingDTO $bookingDTO */
+            $bookingDTO = $this->dtoSerializer->deserialize(
+                $request,
+                BookingDTO::class,
+            );
+        } catch (Exception $e) {
+            return new JsonResponse(
+                BookingsMessages::deserializationFailed([$e->getMessage()]),
+                Response::HTTP_BAD_REQUEST
+            );
         }
 
         $existingBooking = $this->bookingsService->findBookingById($id);
@@ -288,14 +323,23 @@ class BookingsController extends AbstractController
         $isOwner = $existingBooking->getUser()->getId() === $user->getId();
         if (!$isAdmin && !$isOwner) {
             return new JsonResponse(
-                BookingsMessages::validationFailed(
+                BookingsMessages::accessDenied(
                     ['You cannot update other users bookings']
                 ),
                 Response::HTTP_FORBIDDEN
             );
         }
 
+        $booking = new Booking();
+        $this->dtoFactory->mapToEntity($bookingDTO, $booking);
         $booking->setUser($user);
+
+        if ($bookingDTO->houseId) {
+            $house = $this->housesService->findHouseById($bookingDTO->houseId);
+            if ($house) {
+                $booking->setHouse($house);
+            }
+        }
 
         $validationError = $this->bookingsService->validateBookingUpdate($booking, $id);
         if ($validationError === BookingsMessages::NOT_FOUND) {
@@ -337,7 +381,7 @@ class BookingsController extends AbstractController
         $isOwner = $booking->getUser()->getId() === $user->getId();
         if (!$isAdmin && !$isOwner) {
             return new JsonResponse(
-                BookingsMessages::validationFailed(
+                BookingsMessages::accessDenied(
                     ['You cannot delete other users bookings']
                 ),
                 Response::HTTP_FORBIDDEN
@@ -358,52 +402,5 @@ class BookingsController extends AbstractController
             BookingsMessages::deleted(),
             Response::HTTP_OK
         );
-    }
-
-    private function deserializeBooking(Request $request): Booking | JsonResponse
-    {
-        if ($request->getContentTypeFormat() !== 'json') {
-            return new JsonResponse(
-                BookingsMessages::deserializationFailed(
-                    ['Unsupported content type']
-                ),
-                Response::HTTP_UNSUPPORTED_MEDIA_TYPE
-            );
-        }
-
-        try {
-            $data = array_filter(
-                json_decode(
-                    $request->getContent(),
-                    true
-                ),
-                fn ($value) => $value !== null
-            );
-
-            $booking = $this->serializer->deserialize(
-                json_encode($data),
-                Booking::class,
-                'json'
-            );
-
-            if (isset($data['house_id'])) {
-                $house = $this->housesService->findHouseById(
-                    (int) $data['house_id']
-                );
-
-                if ($house) {
-                    $booking->setHouse($house);
-                }
-            }
-
-            return $booking;
-        } catch (NotEncodableValueException | UnexpectedValueException $e) {
-            return new JsonResponse(
-                BookingsMessages::deserializationFailed(
-                    [$e->getMessage()]
-                ),
-                Response::HTTP_BAD_REQUEST
-            );
-        }
     }
 }

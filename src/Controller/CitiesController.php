@@ -5,59 +5,77 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Constant\CitiesMessages;
+use App\DTO\CityDTO;
+use App\DTO\DTOFactory;
 use App\Entity\City;
+use App\Serializer\DTOSerializer;
 use App\Service\CitiesService;
-use App\Validator\EntityValidator;
+use App\Service\CountriesService;
+use App\Validator\DTOValidator;
+use Exception;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Serializer\Exception\NotEncodableValueException;
-use Symfony\Component\Serializer\Exception\UnexpectedValueException;
-use Symfony\Component\Serializer\SerializerInterface;
-use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/api/v1/cities', name: 'api_v1_cities_')]
 class CitiesController extends AbstractController
 {
-    private EntityValidator $entityValidator;
-
     public function __construct(
         private CitiesService $cityService,
-        private SerializerInterface $serializer,
-        private ValidatorInterface $validator
+        private CountriesService $countriesService,
+        private DTOSerializer $dtoSerializer,
+        private DTOValidator $dtoValidator,
+        private DTOFactory $dtoFactory
     ) {
-        $this->entityValidator = new EntityValidator($validator);
     }
 
     #[Route('/', name: 'list', methods: ['GET'])]
     public function listCities(): JsonResponse
     {
-        $cities = array_map(
-            fn ($city) => $city->toArray(),
+        $cityDTOs = $this->dtoFactory->createFromEntities(
             $this->cityService->findAllCities()
         );
 
-        return new JsonResponse($cities, Response::HTTP_OK);
+        return new JsonResponse(
+            array_map(fn ($dto) => $dto->toArray(), $cityDTOs),
+            Response::HTTP_OK
+        );
     }
 
     #[Route('/', name: 'add', methods: ['POST'])]
     public function addCity(Request $request): JsonResponse
     {
-        $city = $this->deserializeCity($request);
-        if ($city instanceof JsonResponse) {
-            return $city;
-        }
-
-        $validationError = $this->entityValidator->validate($city);
-        if ($validationError) {
+        try {
+            /** @var CityDTO $cityDTO */
+            $cityDTO = $this->dtoSerializer->deserialize(
+                $request,
+                CityDTO::class,
+            );
+        } catch (Exception $e) {
             return new JsonResponse(
-                CitiesMessages::validationFailed(
-                    $validationError
-                ),
+                CitiesMessages::deserializationFailed([$e->getMessage()]),
                 Response::HTTP_BAD_REQUEST
             );
+        }
+
+        $validationErrors = $this->dtoValidator->validate($cityDTO);
+        if ($validationErrors) {
+            return new JsonResponse(
+                CitiesMessages::validationFailed($validationErrors),
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        $city = new City();
+        $city->setName($cityDTO->name);
+
+        if ($cityDTO->countryId) {
+            $country = $this->countriesService->findCountryById($cityDTO->countryId);
+            if ($country) {
+                $city->setCountry($country);
+            }
         }
 
         $this->cityService->addCity($city);
@@ -71,23 +89,36 @@ class CitiesController extends AbstractController
     public function getCity(int $id): JsonResponse
     {
         $city = $this->cityService->findCityById($id);
-        return $city
-            ? new JsonResponse(
-                $city->toArray(),
-                Response::HTTP_OK
-            )
-            : new JsonResponse(
+
+        if (!$city) {
+            return new JsonResponse(
                 CitiesMessages::notFound(),
                 Response::HTTP_NOT_FOUND
             );
+        }
+
+        $cityDTO = CityDTO::createFromEntity($city);
+
+        return new JsonResponse(
+            $cityDTO->toArray(),
+            Response::HTTP_OK
+        );
     }
 
     #[Route('/{id}', name: 'update_by_id', methods: ['PATCH'])]
     public function updateCity(Request $request, int $id): JsonResponse
     {
-        $updatedCity = $this->deserializeCity($request);
-        if ($updatedCity instanceof JsonResponse) {
-            return $updatedCity;
+        try {
+            /** @var CityDTO $cityDTO */
+            $cityDTO = $this->dtoSerializer->deserialize(
+                $request,
+                CityDTO::class,
+            );
+        } catch (Exception $e) {
+            return new JsonResponse(
+                CitiesMessages::deserializationFailed([$e->getMessage()]),
+                Response::HTTP_BAD_REQUEST
+            );
         }
 
         $validationError = $this->cityService->validateCityUpdate($id);
@@ -98,7 +129,17 @@ class CitiesController extends AbstractController
             );
         }
 
-        $this->cityService->updateCity($updatedCity, $id);
+        $city = new City();
+        $city->setName($cityDTO->name);
+
+        if ($cityDTO->countryId) {
+            $country = $this->countriesService->findCountryById($cityDTO->countryId);
+            if ($country) {
+                $city->setCountry($country);
+            }
+        }
+
+        $this->cityService->updateCity($city, $id);
         return new JsonResponse(
             CitiesMessages::updated(),
             Response::HTTP_OK
@@ -129,39 +170,5 @@ class CitiesController extends AbstractController
             CitiesMessages::deleted(),
             Response::HTTP_OK
         );
-    }
-
-    private function deserializeCity(Request $request): City | JsonResponse
-    {
-        if ($request->getContentTypeFormat() !== 'json') {
-            return new JsonResponse(
-                CitiesMessages::deserializationFailed(
-                    ['Unsupported content type']
-                ),
-                Response::HTTP_UNSUPPORTED_MEDIA_TYPE
-            );
-        }
-
-        try {
-            $data = array_filter(
-                json_decode(
-                    $request->getContent(),
-                    true
-                )
-            );
-
-            return $this->serializer->deserialize(
-                json_encode($data),
-                City::class,
-                'json'
-            );
-        } catch (NotEncodableValueException | UnexpectedValueException $e) {
-            return new JsonResponse(
-                CitiesMessages::deserializationFailed(
-                    [$e->getMessage()]
-                ),
-                Response::HTTP_BAD_REQUEST
-            );
-        }
     }
 }
