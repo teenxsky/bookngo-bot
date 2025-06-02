@@ -62,9 +62,9 @@ class CreateAdminCommand extends Command
             }
 
             $registrationError = $this->usersService->registerApiUser(
-                $userDTO->phoneNumber,
-                $userDTO->password,
-                true
+                phoneNumber: $userDTO->phoneNumber,
+                password: $userDTO->password,
+                isAdmin: true
             );
             if ($registrationError) {
                 $io->error($registrationError);

@@ -123,14 +123,14 @@ class BookingsControllerTest extends WebTestCase
 
         // Register test users
         $usersService->registerApiUser(
-            self::USER_PHONE_NUMBER,
-            self::USER_PASSWORD,
-            false
+            phoneNumber: self::USER_PHONE_NUMBER,
+            password: self::USER_PASSWORD,
+            isAdmin: false
         );
         $usersService->registerApiUser(
-            self::ADMIN_PHONE_NUMBER,
-            self::ADMIN_PASSWORD,
-            true
+            phoneNumber: self::ADMIN_PHONE_NUMBER,
+            password: self::ADMIN_PASSWORD,
+            isAdmin: true
         );
 
         // Login to get tokens
@@ -238,14 +238,14 @@ class BookingsControllerTest extends WebTestCase
             array_merge(
                 $this->dtoFactory->createFromEntities(
                     self::$bookingsRepository->findBookingsByUserId(
-                        1,
-                        true
+                        userId: 1,
+                        isActual: true
                     )
                 ),
                 $this->dtoFactory->createFromEntities(
                     self::$bookingsRepository->findBookingsByUserId(
-                        1,
-                        false
+                        userId: 1,
+                        isActual: false
                     )
                 ),
             )

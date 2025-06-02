@@ -350,7 +350,10 @@ class TelegramBotController extends AbstractController
         $session = $this->sessionsManager->getSession($chatId);
 
         $user     = $this->usersService->findUserByCriteria(['telegramUserId' => $userId]);
-        $bookings = $this->bookingsService->findBookingsByUserId($user->getId(), $isActual);
+        $bookings = $this->bookingsService->findBookingsByUserId(
+            userId: $user->getId(),
+            isActual: $isActual
+        );
 
         /** @var BookingDTO[] $bookingDTOs */
         $bookingDTOs = $this->dtoFactory->createFromEntities($bookings);

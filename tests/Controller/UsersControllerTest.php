@@ -94,14 +94,14 @@ class UsersControllerTest extends WebTestCase
 
         // Register test users
         self::$usersService->registerApiUser(
-            self::USER_PHONE_NUMBER,
-            self::USER_PASSWORD,
-            false
+            phoneNumber: self::USER_PHONE_NUMBER,
+            password: self::USER_PASSWORD,
+            isAdmin: false
         );
         self::$usersService->registerApiUser(
-            self::ADMIN_PHONE_NUMBER,
-            self::ADMIN_PASSWORD,
-            true
+            phoneNumber: self::ADMIN_PHONE_NUMBER,
+            password: self::ADMIN_PASSWORD,
+            isAdmin: true
         );
     }
 

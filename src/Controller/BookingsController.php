@@ -71,15 +71,15 @@ class BookingsController extends AbstractController
         } else {
             $actualBookings = $this->dtoFactory->createFromEntities(
                 $this->bookingsService->findBookingsByUserId(
-                    $user->getId(),
-                    true
+                    userId: $user->getId(),
+                    isActual: true
                 )
             );
 
             $archivedBookings = $this->dtoFactory->createFromEntities(
                 $this->bookingsService->findBookingsByUserId(
-                    $user->getId(),
-                    false
+                    userId: $user->getId(),
+                    isActual: false
                 )
             );
 

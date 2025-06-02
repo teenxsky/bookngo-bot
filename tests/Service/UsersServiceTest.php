@@ -98,8 +98,9 @@ class UsersServiceTest extends WebTestCase
     public function testRegisterApiUserSuccess(): void
     {
         $result = $this->usersService->registerApiUser(
-            self::TEST_PHONE_NUMBER,
-            self::TEST_PASSWORD
+            phoneNumber: self::TEST_PHONE_NUMBER,
+            password: self::TEST_PASSWORD,
+            isAdmin: false
         );
 
         $this->assertNull($result);
@@ -117,13 +118,15 @@ class UsersServiceTest extends WebTestCase
     public function testRegisterApiUserAlreadyExists(): void
     {
         $this->usersService->registerApiUser(
-            self::TEST_PHONE_NUMBER,
-            self::TEST_PASSWORD
+            phoneNumber: self::TEST_PHONE_NUMBER,
+            password: self::TEST_PASSWORD,
+            isAdmin: false
         );
 
         $result = $this->usersService->registerApiUser(
-            self::TEST_PHONE_NUMBER,
-            self::TEST_PASSWORD
+            phoneNumber: self::TEST_PHONE_NUMBER,
+            password: self::TEST_PASSWORD,
+            isAdmin: false
         );
 
         $this->assertEquals(
@@ -135,9 +138,9 @@ class UsersServiceTest extends WebTestCase
     public function testRegisterApiUserAsAdmin(): void
     {
         $result = $this->usersService->registerApiUser(
-            self::TEST_ADMIN_PHONE,
-            self::TEST_ADMIN_PASSWORD,
-            true
+            phoneNumber: self::TEST_ADMIN_PHONE,
+            password: self::TEST_ADMIN_PASSWORD,
+            isAdmin: true
         );
 
         $this->assertNull($result);
@@ -157,7 +160,11 @@ class UsersServiceTest extends WebTestCase
 
     public function testLoginApiUserSuccess(): void
     {
-        $this->usersService->registerApiUser(self::TEST_PHONE_NUMBER, self::TEST_PASSWORD);
+        $this->usersService->registerApiUser(
+            phoneNumber: self::TEST_PHONE_NUMBER,
+            password: self::TEST_PASSWORD,
+            isAdmin: false
+        );
 
         $validationError = $this->usersService->validateCredentials(
             self::TEST_PHONE_NUMBER,
@@ -189,8 +196,9 @@ class UsersServiceTest extends WebTestCase
     public function testLoginApiUserInvalidCredentials(): void
     {
         $this->usersService->registerApiUser(
-            self::TEST_PHONE_NUMBER,
-            self::TEST_PASSWORD
+            phoneNumber: self::TEST_PHONE_NUMBER,
+            password: self::TEST_PASSWORD,
+            isAdmin: false
         );
 
         $validationError = $this->usersService->validateCredentials(
@@ -207,8 +215,9 @@ class UsersServiceTest extends WebTestCase
     public function testLogoutSuccess(): void
     {
         $this->usersService->registerApiUser(
-            self::TEST_PHONE_NUMBER,
-            self::TEST_PASSWORD
+            phoneNumber: self::TEST_PHONE_NUMBER,
+            password: self::TEST_PASSWORD,
+            isAdmin: false
         );
         $tokens = $this->usersService->loginApiUser(
             self::TEST_PHONE_NUMBER
@@ -230,8 +239,9 @@ class UsersServiceTest extends WebTestCase
     public function testRefreshTokensSuccess(): void
     {
         $this->usersService->registerApiUser(
-            self::TEST_PHONE_NUMBER,
-            self::TEST_PASSWORD
+            phoneNumber: self::TEST_PHONE_NUMBER,
+            password: self::TEST_PASSWORD,
+            isAdmin: false
         );
         $tokens = $this->usersService->loginApiUser(
             self::TEST_PHONE_NUMBER

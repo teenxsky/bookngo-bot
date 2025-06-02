@@ -83,8 +83,9 @@ class UsersController extends AbstractController
         }
 
         $registrationError = $this->usersService->registerApiUser(
-            $userDTO->phoneNumber,
-            $userDTO->password
+            phoneNumber: $userDTO->phoneNumber,
+            password: $userDTO->password,
+            isAdmin: false
         );
         if ($registrationError) {
             return new JsonResponse(

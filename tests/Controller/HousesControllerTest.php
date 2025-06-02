@@ -109,9 +109,9 @@ class HousesControllerTest extends WebTestCase
 
         // Register test user
         $usersService->registerApiUser(
-            self::ADMIN_PHONE_NUMBER,
-            self::ADMIN_PASSWORD,
-            true
+            phoneNumber: self::ADMIN_PHONE_NUMBER,
+            password: self::ADMIN_PASSWORD,
+            isAdmin: true
         );
 
         // Login to get tokens
