@@ -28,8 +28,12 @@ class CountriesServiceTest extends KernelTestCase
         $kernel = self::bootKernel();
         $this->assertSame('test', $kernel->getEnvironment());
 
-        $this->entityManager     = static::getContainer()->get('doctrine')->getManager();
-        $this->countryRepository = $this->entityManager->getRepository(Country::class);
+        $this->entityManager = static::getContainer()
+            ->get('doctrine')
+            ->getManager();
+        $this->countryRepository = $this->entityManager->getRepository(
+            Country::class
+        );
 
         $this->countryService = new CountriesService(
             $this->countryRepository
@@ -42,8 +46,12 @@ class CountriesServiceTest extends KernelTestCase
     private function truncateTables(): void
     {
         $connection = $this->entityManager->getConnection();
-        $connection->executeStatement('TRUNCATE TABLE country RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE city RESTART IDENTITY CASCADE');
+        $connection->executeStatement(
+            'TRUNCATE TABLE countries RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE cities RESTART IDENTITY CASCADE'
+        );
     }
 
     private function createTestData(): void
@@ -84,15 +92,16 @@ class CountriesServiceTest extends KernelTestCase
     public function testFindCountryById(): void
     {
         $expectedCountry = $this->testCountries[0];
-        $result          = $this->countryService->findCountryById($expectedCountry->getId());
+        $country         = $this->countryService->findCountryById($expectedCountry->getId());
 
-        $this->assertNull($result['error']);
-        $this->assertNotNull($result['country']);
-        $this->assertCountriesEqual($expectedCountry, $result['country']);
+        $this->assertNotNull($country);
+        $this->assertCountriesEqual($expectedCountry, $country);
 
-        $result = $this->countryService->findCountryById(999);
-        $this->assertNotNull($result['error']);
-        $this->assertNull($result['country']);
+        $nonExistentCountry = $this->countryService->findCountryById(999);
+        $this->assertNull($nonExistentCountry);
+
+        $validationError = $this->countryService->validateCountryExists(999);
+        $this->assertNotNull($validationError);
     }
 
     public function testAddCountry(): void
@@ -124,34 +133,35 @@ class CountriesServiceTest extends KernelTestCase
         $updatedCountry = (new Country())
             ->setName('Updated Country Name');
 
-        $error = $this->countryService->updateCountry($updatedCountry, $country->getId());
-        $this->assertNull($error);
+        $validationError = $this->countryService->validateCountryUpdate($country->getId());
+        $this->assertNull($validationError);
 
-        $result = $this->countryService->findCountryById($country->getId());
+        $this->countryService->updateCountry($updatedCountry, $country->getId());
+
+        $updatedCountryResult = $this->countryService->findCountryById($country->getId());
         $this->assertEquals(
             $updatedCountry->getName(),
-            $result['country']->getName()
+            $updatedCountryResult->getName()
         );
     }
 
     public function testUpdateNonExistentCountry(): void
     {
-        $updatedCountry = (new Country())
-            ->setName('Non-existent Country');
-
-        $error = $this->countryService->updateCountry($updatedCountry, 999);
-        $this->assertNotNull($error);
+        $validationError = $this->countryService->validateCountryUpdate(999);
+        $this->assertNotNull($validationError);
     }
 
     public function testDeleteCountry(): void
     {
         $countryWithCities = $this->testCountries[0];
-        $error             = $this->countryService->deleteCountry($countryWithCities->getId());
-        $this->assertNotNull($error);
+        $validationError   = $this->countryService->validateCountryDeletion($countryWithCities->getId());
+        $this->assertNotNull($validationError);
 
         $countryWithoutCities = $this->testCountries[1];
-        $error                = $this->countryService->deleteCountry($countryWithoutCities->getId());
-        $this->assertNull($error);
+        $validationError      = $this->countryService->validateCountryDeletion($countryWithoutCities->getId());
+        $this->assertNull($validationError);
+
+        $this->countryService->deleteCountry($countryWithoutCities->getId());
 
         $countries = $this->countryService->findAllCountries();
         $this->assertCount(1, $countries);
@@ -159,7 +169,7 @@ class CountriesServiceTest extends KernelTestCase
 
     public function testDeleteNonExistentCountry(): void
     {
-        $error = $this->countryService->deleteCountry(999);
-        $this->assertNotNull($error);
+        $validationError = $this->countryService->validateCountryDeletion(999);
+        $this->assertNotNull($validationError);
     }
 }

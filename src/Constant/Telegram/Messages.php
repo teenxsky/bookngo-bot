@@ -54,7 +54,6 @@ class Messages
     🏠 *House code:* %d
     📍 Address: %s, %s, %s
 
-    📞 Phone number: %s
     💬 Comment: %s
     📅 Dates: %s to %s
         
@@ -68,7 +67,6 @@ class Messages
     🏠 *House code:* %d
     📍 Address: %s, %s, %s
 
-    📞 Phone number: %s
     💬 Comment: %s
     📅 Dates: %s to %s
 

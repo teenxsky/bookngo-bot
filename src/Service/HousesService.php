@@ -37,24 +37,24 @@ class HousesService
 
     /**
      * @param int $id
-     * @return array{
-     *    house:House|null,
-     *    error:string|null
-     * }
+     * @return House|null
      */
-    public function findHouseById(int $id): array
+    public function findHouseById(int $id): ?House
     {
-        $house = $this->housesRepo->findHouseById($id);
+        return $this->housesRepo->findHouseById($id);
+    }
+
+    /**
+     * @param int $id
+     * @return string|null
+     */
+    public function validateHouseExists(int $id): ?string
+    {
+        $house = $this->findHouseById($id);
         if (!$house) {
-            return [
-              'house' => null,
-              'error' => HousesMessages::NOT_FOUND
-            ];
+            return HousesMessages::NOT_FOUND;
         }
-        return [
-          'house' => $house,
-          'error' => null
-        ];
+        return null;
     }
 
     /**
@@ -92,22 +92,28 @@ class HousesService
      * @param int $id
      * @return string|null
      */
-    public function deleteHouse(int $id): ?string
+    public function validateHouseDeletion(int $id): ?string
     {
-        $result = $this->findHouseById($id);
-        $house  = $result['house'];
-        $error  = $result['error'];
-
-        if ($error !== null) {
-            return $error;
+        $validationError = $this->validateHouseExists($id);
+        if ($validationError) {
+            return $validationError;
         }
 
+        $house = $this->findHouseById($id);
         if (!$this->checkHouseAvailability($house)) {
             return HousesMessages::BOOKED;
         }
 
-        $this->housesRepo->deleteHouseById($id);
         return null;
+    }
+
+    /**
+     * @param int $id
+     * @return void
+     */
+    public function deleteHouse(int $id): void
+    {
+        $this->housesRepo->deleteHouseById($id);
     }
 
     /**
@@ -119,35 +125,42 @@ class HousesService
     }
 
     /**
-     * @param House $replacingHouse
      * @param int $id
      * @return string|null
      */
-    public function replaceHouse(House $replacingHouse, int $id): ?string
+    public function validateHouseReplacement(int $id): ?string
     {
-        $error = $this->findHouseById($id)['error'];
-        if ($error !== null) {
-            return $error;
-        }
+        return $this->validateHouseExists($id);
+    }
 
+    /**
+     * @param House $replacingHouse
+     * @param int $id
+     * @return void
+     */
+    public function replaceHouse(House $replacingHouse, int $id): void
+    {
         $replacingHouse->setId($id);
         $this->housesRepo->updateHouse($replacingHouse);
-        return null;
+    }
+
+    /**
+     * @param int $id
+     * @return string|null
+     */
+    public function validateHouseUpdate(int $id): ?string
+    {
+        return $this->validateHouseExists($id);
     }
 
     /**
      * @param House $updatedHouse
      * @param int $id
-     * @return string|null
+     * @return void
      */
-    public function updateHouseFields(House $updatedHouse, int $id): ?string
+    public function updateHouseFields(House $updatedHouse, int $id): void
     {
-        $result = $this->findHouseById($id);
-        if ($result['error'] !== null) {
-            return $result['error'];
-        }
-
-        $existingHouse = $result['house'];
+        $existingHouse = $this->findHouseById($id);
         $existingHouse
             ->setBedroomsCount(
                 $updatedHouse->getBedroomsCount() ?? $existingHouse->getBedroomsCount()
@@ -172,6 +185,5 @@ class HousesService
             );
 
         $this->housesRepo->updateHouse($existingHouse);
-        return null;
     }
 }

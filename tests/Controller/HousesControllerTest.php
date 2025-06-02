@@ -5,14 +5,22 @@ declare(strict_types=1);
 namespace App\Tests\Controller;
 
 use App\Constant\HousesMessages;
+use App\Entity\City;
+use App\Entity\Country;
+use App\Entity\House;
+use App\Entity\User;
 use App\Repository\CitiesRepository;
 use App\Repository\CountriesRepository;
 use App\Repository\HousesRepository;
+use App\Service\UsersService;
 use Doctrine\ORM\EntityManagerInterface;
+use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Override;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class HousesControllerTest extends WebTestCase
 {
@@ -23,8 +31,15 @@ class HousesControllerTest extends WebTestCase
     /** @var CountriesRepository $countriesRepository */
     private static CountriesRepository $countriesRepository;
 
-    private KernelBrowser $client;
+    private static KernelBrowser $client;
     private EntityManagerInterface $entityManager;
+
+    // Test Credentials
+    /** @var array{access_token: string, refresh_token: string} */
+    private static array $adminTokens;
+
+    private const ADMIN_PHONE_NUMBER = '+1234567890';
+    private const ADMIN_PASSWORD     = 'admin123';
 
     // Test Data Paths
     private const HOUSES_CSV_PATH    = __DIR__ . '/../Resources/test_houses.csv';
@@ -43,36 +58,113 @@ class HousesControllerTest extends WebTestCase
 
     protected static function initializeDatabase(): void
     {
-        $kernel = static::createKernel();
-        $kernel->boot();
-        self::assertSame('test', $kernel->getEnvironment());
+        // Initialize the client
+        self::$client = static::createClient();
+        self::assertSame(
+            'test',
+            self::$client->getKernel()->getEnvironment()
+        );
 
-        $entityManager = $kernel->getContainer()->get('doctrine')->getManager();
-        $connection    = $entityManager->getConnection();
+        // Initialize the entity manager
+        $entityManager = self::$client->getKernel()->getContainer()
+            ->get('doctrine')
+            ->getManager();
 
-        $connection->executeStatement('TRUNCATE TABLE house RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE city RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE country RESTART IDENTITY CASCADE');
+        // Clear all tables
+        $connection = $entityManager->getConnection();
+        $connection->executeStatement(
+            'TRUNCATE TABLE refresh_tokens RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE users RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE houses RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE cities RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE countries RESTART IDENTITY CASCADE'
+        );
 
-        self::$countriesRepository = $entityManager->getRepository('App\Entity\Country');
-        self::$countriesRepository->loadFromCsv(self::COUNTRIES_CSV_PATH);
+        // Initialize services
+        $usersService = new UsersService(
+            $entityManager->getRepository(
+                User::class
+            ),
+            static::getContainer()->get(
+                UserPasswordHasherInterface::class
+            ),
+            static::getContainer()->get(
+                JWTTokenManagerInterface::class
+            ),
+            static::getContainer()->get(
+                RefreshTokenManagerInterface::class
+            )
+        );
 
-        self::$citiesRepository = $entityManager->getRepository('App\Entity\City');
-        self::$citiesRepository->loadFromCsv(self::CITIES_CSV_PATH);
+        // Register test user
+        $usersService->registerApiUser(
+            phoneNumber: self::ADMIN_PHONE_NUMBER,
+            password: self::ADMIN_PASSWORD,
+            isAdmin: true
+        );
 
-        self::$housesRepository = $entityManager->getRepository('App\Entity\House');
-        self::$housesRepository->loadFromCsv(self::HOUSES_CSV_PATH);
+        // Login to get tokens
+        if (!$usersService->validateCredentials(
+            self::ADMIN_PHONE_NUMBER,
+            self::ADMIN_PASSWORD
+        )) {
+            self::$adminTokens = $usersService->loginApiUser(
+                self::ADMIN_PHONE_NUMBER,
+            );
+        }
+
+        // Initialize the database
+        self::$countriesRepository = $entityManager->getRepository(
+            Country::class
+        );
+        self::$countriesRepository->loadFromCsv(
+            self::COUNTRIES_CSV_PATH
+        );
+
+        self::$citiesRepository = $entityManager->getRepository(
+            City::class
+        );
+        self::$citiesRepository->loadFromCsv(
+            self::CITIES_CSV_PATH
+        );
+
+        self::$housesRepository = $entityManager->getRepository(
+            House::class
+        );
+        self::$housesRepository->loadFromCsv(
+            self::HOUSES_CSV_PATH
+        );
     }
 
     #[Override]
     public function setUp(): void
     {
-        $this->client        = static::createClient();
-        $this->entityManager = $this->client->getContainer()->get('doctrine')->getManager();
+        self::$client->getKernel()->boot();
+        self::$client->setServerParameter(
+            'HTTP_Authorization',
+            'Bearer '. self::$adminTokens['access_token'],
+        );
 
-        self::$housesRepository    = $this->entityManager->getRepository('App\Entity\House');
-        self::$citiesRepository    = $this->entityManager->getRepository('App\Entity\City');
-        self::$countriesRepository = $this->entityManager->getRepository('App\Entity\Country');
+        $this->entityManager = self::$client->getContainer()
+            ->get('doctrine')
+            ->getManager();
+        self::$countriesRepository = $this->entityManager->getRepository(
+            Country::class
+        );
+        self::$citiesRepository = $this->entityManager->getRepository(
+            City::class
+        );
+        self::$housesRepository = $this->entityManager->getRepository(
+            House::class
+        );
     }
 
     private function assertResponse(
@@ -107,9 +199,12 @@ class HousesControllerTest extends WebTestCase
             self::$housesRepository->findAll()
         );
 
-        $this->client->request('GET', self::API_HOUSES);
+        self::$client->request(
+            'GET',
+            self::API_HOUSES,
+        );
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_OK,
             $expectedHouses
         );
@@ -126,9 +221,12 @@ class HousesControllerTest extends WebTestCase
         $houseId       = 1;
         $expectedHouse = self::$housesRepository->find($houseId)->toArray();
 
-        $this->client->request('GET', sprintf(self::API_HOUSES_ID, $houseId));
+        self::$client->request(
+            'GET',
+            sprintf(self::API_HOUSES_ID, $houseId),
+        );
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_OK,
             $expectedHouse
         );
@@ -144,9 +242,12 @@ class HousesControllerTest extends WebTestCase
     {
         $houseId = 999;
 
-        $this->client->request('GET', sprintf(self::API_HOUSES_ID, $houseId));
+        self::$client->request(
+            'GET',
+            sprintf(self::API_HOUSES_ID, $houseId),
+        );
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_NOT_FOUND,
             HousesMessages::notFound()
         );
@@ -175,7 +276,7 @@ class HousesControllerTest extends WebTestCase
 
         $countBefore = count(self::$housesRepository->findAll());
 
-        $this->client->request(
+        self::$client->request(
             'POST',
             self::API_HOUSES,
             [],
@@ -184,7 +285,7 @@ class HousesControllerTest extends WebTestCase
             json_encode($newHouseData)
         );
 
-        $response = $this->client->getResponse();
+        $response = self::$client->getResponse();
         $this->assertResponse(
             $response,
             Response::HTTP_CREATED,
@@ -215,7 +316,7 @@ class HousesControllerTest extends WebTestCase
             'has_sea_view'         => false
         ];
 
-        $this->client->request(
+        self::$client->request(
             'POST',
             self::API_HOUSES,
             [],
@@ -224,7 +325,7 @@ class HousesControllerTest extends WebTestCase
             json_encode($invalidHouseData)
         );
 
-        $response = $this->client->getResponse();
+        $response = self::$client->getResponse();
         $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
 
         $responseData = json_decode($response->getContent(), true);
@@ -255,7 +356,7 @@ class HousesControllerTest extends WebTestCase
             'image_url'            => 'https://example.com/updated.jpg'
         ];
 
-        $this->client->request(
+        self::$client->request(
             'PUT',
             sprintf(self::API_HOUSES_ID, $houseId),
             [],
@@ -265,7 +366,7 @@ class HousesControllerTest extends WebTestCase
         );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_OK,
             HousesMessages::replaced()
         );
@@ -296,7 +397,7 @@ class HousesControllerTest extends WebTestCase
             'image_url'            => 'https://example.com/updated.jpg'
         ];
 
-        $this->client->request(
+        self::$client->request(
             'PUT',
             sprintf(self::API_HOUSES_ID, $houseId),
             [],
@@ -306,7 +407,7 @@ class HousesControllerTest extends WebTestCase
         );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_NOT_FOUND,
             HousesMessages::notFound()
         );
@@ -326,7 +427,7 @@ class HousesControllerTest extends WebTestCase
             'price_per_night' => 15000
         ];
 
-        $this->client->request(
+        self::$client->request(
             'PATCH',
             sprintf(self::API_HOUSES_ID, $houseId),
             [],
@@ -336,7 +437,7 @@ class HousesControllerTest extends WebTestCase
         );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_OK,
             HousesMessages::updated()
         );
@@ -356,10 +457,13 @@ class HousesControllerTest extends WebTestCase
     {
         $houseId = 3;
 
-        $this->client->request('DELETE', sprintf(self::API_HOUSES_ID, $houseId));
+        self::$client->request(
+            'DELETE',
+            sprintf(self::API_HOUSES_ID, $houseId),
+        );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_OK,
             HousesMessages::deleted()
         );
@@ -377,10 +481,13 @@ class HousesControllerTest extends WebTestCase
     {
         $houseId = 999;
 
-        $this->client->request('DELETE', sprintf(self::API_HOUSES_ID, $houseId));
+        self::$client->request(
+            'DELETE',
+            sprintf(self::API_HOUSES_ID, $houseId),
+        );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_NOT_FOUND,
             HousesMessages::notFound()
         );

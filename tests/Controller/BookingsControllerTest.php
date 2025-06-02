@@ -7,17 +7,24 @@ namespace App\Tests\Controller;
 use App\Constant\BookingsMessages;
 use App\Constant\HousesMessages;
 use App\Entity\Booking;
+use App\Entity\City;
+use App\Entity\Country;
 use App\Entity\House;
+use App\Entity\User;
 use App\Repository\BookingsRepository;
 use App\Repository\CitiesRepository;
 use App\Repository\CountriesRepository;
 use App\Repository\HousesRepository;
+use App\Service\UsersService;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Override;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class BookingsControllerTest extends WebTestCase
 {
@@ -25,13 +32,24 @@ class BookingsControllerTest extends WebTestCase
     private static HousesRepository $housesRepository;
     /** @var CitiesRepository $citiesRepository */
     private static CitiesRepository $citiesRepository;
-    /** @var BookingsRepository $bookingsRepository */
-    private static BookingsRepository $bookingsRepository;
     /** @var CountriesRepository $countriesRepository */
     private static CountriesRepository $countriesRepository;
+    /** @var BookingsRepository $bookingsRepository */
+    private static BookingsRepository $bookingsRepository;
 
-    private KernelBrowser $client;
+    private static KernelBrowser $client;
     private EntityManagerInterface $entityManager;
+
+    // Test Credentials
+    /** @var array{access_token: string, refresh_token: string} */
+    private static array $userTokens;
+    /** @var array{access_token: string, refresh_token: string} */
+    private static array $adminTokens;
+
+    private const USER_PHONE_NUMBER  = '+1234567890';
+    private const USER_PASSWORD      = 'user123';
+    private const ADMIN_PHONE_NUMBER = '+1234567891';
+    private const ADMIN_PASSWORD     = 'admin123';
 
     // Test Data Paths
     private const BOOKINGS_CSV_PATH  = __DIR__ . '/../Resources/test_bookings.csv';
@@ -51,39 +69,136 @@ class BookingsControllerTest extends WebTestCase
 
     protected static function initializeDatabase(): void
     {
-        $kernel = static::createKernel();
-        $kernel->boot();
-        self::assertSame('test', $kernel->getEnvironment());
+        // Initialize the client
+        self::$client = static::createClient();
+        self::assertSame(
+            'test',
+            self::$client->getKernel()->getEnvironment()
+        );
 
-        $entityManager = $kernel->getContainer()->get('doctrine')->getManager();
-        $connection    = $entityManager->getConnection();
+        // Initialize the entity manager
+        $entityManager = self::$client->getContainer()
+            ->get('doctrine')
+            ->getManager();
 
-        $connection->executeStatement('TRUNCATE TABLE booking RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE house RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE city RESTART IDENTITY CASCADE');
-        $connection->executeStatement('TRUNCATE TABLE country RESTART IDENTITY CASCADE');
+        // Clear all tables
+        $connection = $entityManager->getConnection();
+        $connection->executeStatement(
+            'TRUNCATE TABLE refresh_tokens RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE bookings RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE houses RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE cities RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE countries RESTART IDENTITY CASCADE'
+        );
+        $connection->executeStatement(
+            'TRUNCATE TABLE users RESTART IDENTITY CASCADE'
+        );
 
-        self::$countriesRepository = $entityManager->getRepository('App\Entity\Country');
-        self::$countriesRepository->loadFromCsv(self::COUNTRIES_CSV_PATH);
+        // Initialize services
+        $usersService = new UsersService(
+            $entityManager->getRepository(
+                User::class
+            ),
+            static::getContainer()->get(
+                UserPasswordHasherInterface::class
+            ),
+            static::getContainer()->get(
+                JWTTokenManagerInterface::class
+            ),
+            static::getContainer()->get(
+                RefreshTokenManagerInterface::class
+            )
+        );
 
-        self::$citiesRepository = $entityManager->getRepository('App\Entity\City');
-        self::$citiesRepository->loadFromCsv(self::CITIES_CSV_PATH);
+        // Register test users
+        $usersService->registerApiUser(
+            phoneNumber: self::USER_PHONE_NUMBER,
+            password: self::USER_PASSWORD,
+            isAdmin: false
+        );
+        $usersService->registerApiUser(
+            phoneNumber: self::ADMIN_PHONE_NUMBER,
+            password: self::ADMIN_PASSWORD,
+            isAdmin: true
+        );
 
-        self::$housesRepository = $entityManager->getRepository('App\Entity\House');
-        self::$housesRepository->loadFromCsv(self::HOUSES_CSV_PATH);
+        // Login to get tokens
+        if (!$usersService->validateCredentials(
+            self::USER_PHONE_NUMBER,
+            self::USER_PASSWORD
+        )) {
+            self::$userTokens = $usersService->loginApiUser(
+                self::USER_PHONE_NUMBER
+            );
+        }
 
-        self::$bookingsRepository = $entityManager->getRepository(Booking::class);
-        self::$bookingsRepository->loadFromCsv(self::BOOKINGS_CSV_PATH);
+        if (!$usersService->validateCredentials(
+            self::ADMIN_PHONE_NUMBER,
+            self::ADMIN_PASSWORD
+        )) {
+            self::$adminTokens = $usersService->loginApiUser(
+                self::ADMIN_PHONE_NUMBER,
+            );
+        }
+
+        // Initialize the database
+        self::$countriesRepository = $entityManager->getRepository(
+            Country::class
+        );
+        self::$countriesRepository->loadFromCsv(
+            self::COUNTRIES_CSV_PATH
+        );
+
+        self::$citiesRepository = $entityManager->getRepository(
+            City::class
+        );
+        self::$citiesRepository->loadFromCsv(
+            self::CITIES_CSV_PATH
+        );
+
+        self::$housesRepository = $entityManager->getRepository(
+            House::class
+        );
+        self::$housesRepository->loadFromCsv(
+            self::HOUSES_CSV_PATH
+        );
+
+        self::$bookingsRepository = $entityManager->getRepository(
+            Booking::class
+        );
+        self::$bookingsRepository->loadFromCsv(
+            self::BOOKINGS_CSV_PATH
+        );
     }
 
     #[Override]
     public function setUp(): void
     {
-        $this->client        = static::createClient();
-        $this->entityManager = $this->client->getContainer()->get('doctrine')->getManager();
+        self::$client->getKernel()->boot();
 
-        self::$bookingsRepository = $this->entityManager->getRepository(Booking::class);
-        self::$housesRepository   = $this->entityManager->getRepository(House::class);
+        $this->entityManager = self::$client->getContainer()
+            ->get('doctrine')
+            ->getManager();
+        self::$countriesRepository = $this->entityManager->getRepository(
+            Country::class
+        );
+        self::$citiesRepository = $this->entityManager->getRepository(
+            City::class
+        );
+        self::$housesRepository = $this->entityManager->getRepository(
+            House::class
+        );
+        self::$bookingsRepository = $this->entityManager->getRepository(
+            Booking::class
+        );
     }
 
     private function assertResponse(
@@ -106,23 +221,74 @@ class BookingsControllerTest extends WebTestCase
     }
 
     /*
+     * Scenario: Listing user's bookings
+     * Given there are bookings in the system
+     * When I request the list of bookings
+     * Then I should receive a list of all user's bookings with status 200
+     */
+    public function testUserListBookings(): void
+    {
+        $expectedBookings = array_merge(
+            array_map(
+                fn ($booking) => $booking->toArray(),
+                self::$bookingsRepository->findBookingsByUserId(
+                    userId: 1,
+                    isActual: true
+                )
+            ),
+            array_map(
+                fn ($booking) => $booking->toArray(),
+                self::$bookingsRepository->findBookingsByUserId(
+                    userId: 1,
+                    isActual: false
+                )
+            )
+        );
+
+        self::$client->request(
+            method: 'GET',
+            uri: self::API_BOOKINGS,
+            server: [
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ]
+        );
+        $this->assertResponse(
+            self::$client->getResponse(),
+            Response::HTTP_OK,
+            $expectedBookings,
+        );
+    }
+
+    /*
      * Scenario: Listing all bookings
      * Given there are bookings in the system
      * When I request the list of bookings
      * Then I should receive a list of all bookings with status 200
      */
-    public function testListBookings(): void
+    public function testAdminListBookings(): void
     {
         $expectedBookings = array_map(
             fn ($booking) => $booking->toArray(),
-            self::$bookingsRepository->findAll()
+            self::$bookingsRepository->findAllBookings()
         );
 
-        $this->client->request('GET', self::API_BOOKINGS);
+        self::$client->request(
+            method: 'GET',
+            uri: self::API_BOOKINGS,
+            server: [
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$adminTokens['access_token']
+                )
+            ]
+        );
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_OK,
-            $expectedBookings
+            $expectedBookings,
         );
     }
 
@@ -137,9 +303,18 @@ class BookingsControllerTest extends WebTestCase
         $bookingId       = 1;
         $expectedBooking = self::$bookingsRepository->find($bookingId)->toArray();
 
-        $this->client->request('GET', sprintf(self::API_BOOKINGS_ID, $bookingId));
+        self::$client->request(
+            method: 'GET',
+            uri: sprintf(self::API_BOOKINGS_ID, $bookingId),
+            server: [
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ]
+        );
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_OK,
             $expectedBooking
         );
@@ -155,9 +330,18 @@ class BookingsControllerTest extends WebTestCase
     {
         $bookingId = 999;
 
-        $this->client->request('GET', sprintf(self::API_BOOKINGS_ID, $bookingId));
+        self::$client->request(
+            method: 'GET',
+            uri: sprintf(self::API_BOOKINGS_ID, $bookingId),
+            server: [
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ]
+        );
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_NOT_FOUND,
             BookingsMessages::notFound()
         );
@@ -172,30 +356,30 @@ class BookingsControllerTest extends WebTestCase
     public function testAddBookingSuccess(): void
     {
         $newBookingData = [
-            'house_id'     => 3,
-            'phone_number' => '+1234567890',
-            'comment'      => 'New booking',
-            'start_date'   => (new DateTimeImmutable())
+            'house_id'   => 3,
+            'comment'    => 'New booking',
+            'start_date' => (new DateTimeImmutable())
                 ->modify('+1 day')
                 ->format('Y-m-d'),
             'end_date' => (new DateTimeImmutable())
                 ->modify('+1 month')
                 ->format('Y-m-d'),
-            'telegram_chat_id'  => 111222333,
-            'telegram_user_id'  => 444555666,
-            'telegram_username' => 'new_user'
         ];
 
-        $this->client->request(
-            'POST',
-            self::API_BOOKINGS,
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/json'],
-            json_encode($newBookingData)
+        self::$client->request(
+            method: 'POST',
+            uri: self::API_BOOKINGS,
+            server: [
+                'CONTENT_TYPE'       => 'application/json',
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ],
+            content: json_encode($newBookingData)
         );
 
-        $response = $this->client->getResponse();
+        $response = self::$client->getResponse();
         $this->assertResponse(
             $response,
             Response::HTTP_CREATED,
@@ -212,31 +396,42 @@ class BookingsControllerTest extends WebTestCase
     public function testAddBookingValidationError(): void
     {
         $invalidBookingData = [
-            'house_id'     => 3,
-            'phone_number' => '',
-            'start_date'   => (new DateTimeImmutable())
+            'house_id'   => 3,
+            'start_date' => (new DateTimeImmutable())
                 ->modify('+1 day')
                 ->format('Y-m-d'),
             'end_date' => (new DateTimeImmutable())
                 ->modify('-1 month')
                 ->format('Y-m-d'),
-            'telegram_chat_id' => 111222333
         ];
 
-        $this->client->request(
-            'POST',
-            self::API_BOOKINGS,
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/json'],
-            json_encode($invalidBookingData)
+        self::$client->request(
+            method: 'POST',
+            uri: self::API_BOOKINGS,
+            server: [
+                'CONTENT_TYPE'       => 'application/json',
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ],
+            content: json_encode($invalidBookingData)
         );
 
-        $response = $this->client->getResponse();
-        $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+        $response = self::$client->getResponse();
+        $this->assertEquals(
+            Response::HTTP_BAD_REQUEST,
+            $response->getStatusCode()
+        );
 
-        $responseData = json_decode($response->getContent(), true);
-        $this->assertEquals('Validation failed', $responseData['message']);
+        $responseData = json_decode(
+            $response->getContent(),
+            true
+        );
+        $this->assertEquals(
+            'Validation failed',
+            $responseData['message']
+        );
         $this->assertArrayHasKey('errors', $responseData);
         $this->assertNotEmpty($responseData['errors']);
     }
@@ -250,9 +445,8 @@ class BookingsControllerTest extends WebTestCase
     public function testAddBookingHouseNotFound(): void
     {
         $newBookingData = [
-            'house_id'     => 999,
-            'phone_number' => '+1234567890',
-            'start_date'   => (new DateTimeImmutable())
+            'house_id'   => 999,
+            'start_date' => (new DateTimeImmutable())
                 ->modify('+1 day')
                 ->format('Y-m-d'),
             'end_date' => (new DateTimeImmutable())
@@ -260,17 +454,21 @@ class BookingsControllerTest extends WebTestCase
                 ->format('Y-m-d'),
         ];
 
-        $this->client->request(
-            'POST',
-            self::API_BOOKINGS,
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/json'],
-            json_encode($newBookingData)
+        self::$client->request(
+            method: 'POST',
+            uri: self::API_BOOKINGS,
+            server: [
+                'CONTENT_TYPE'       => 'application/json',
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ],
+            content: json_encode($newBookingData)
         );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_NOT_FOUND,
             HousesMessages::notFound()
         );
@@ -284,40 +482,88 @@ class BookingsControllerTest extends WebTestCase
      */
     public function testReplaceBookingSuccess(): void
     {
-        $bookingId      = 1;
+        $bookingId      = 5;
         $newBookingData = [
-            'house_id'     => 4,
-            'phone_number' => '+9876543210',
-            'comment'      => 'Updated booking',
-            'start_date'   => (new DateTimeImmutable())
+            'house_id'   => 4,
+            'comment'    => 'Updated booking',
+            'start_date' => (new DateTimeImmutable())
                 ->modify('+1 day')
                 ->format('Y-m-d'),
             'end_date' => (new DateTimeImmutable())
                 ->modify('+1 month')
-                ->format('Y-m-d'),
-            'telegram_chat_id'  => 999888777,
-            'telegram_user_id'  => 666555444,
-            'telegram_username' => 'updated_user'
+                ->format('Y-m-d')
         ];
 
-        $this->client->request(
-            'PUT',
-            sprintf(self::API_BOOKINGS_ID, $bookingId),
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/json'],
-            json_encode($newBookingData)
+        self::$client->request(
+            method: 'PUT',
+            uri: sprintf(self::API_BOOKINGS_ID, $bookingId),
+            server: [
+                'CONTENT_TYPE'       => 'application/json',
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ],
+            content: json_encode($newBookingData)
         );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_OK,
             BookingsMessages::replaced()
         );
 
         $updatedBooking = self::$bookingsRepository->find($bookingId);
-        $this->assertEquals('Updated booking', $updatedBooking->getComment());
-        $this->assertEquals(4, $updatedBooking->getHouse()->getId());
+        $this->assertEquals(
+            'Updated booking',
+            $updatedBooking->getComment()
+        );
+        $this->assertEquals(
+            4,
+            $updatedBooking->getHouse()->getId()
+        );
+    }
+
+    /*
+     * Scenario: Replacing a someone else booking
+     * Given there is an existing booking
+     * When I replace the booking with new data
+     * Then the booking shouldn't be updated with status 403
+     */
+    public function testReplaceSomeoneElseBooking(): void
+    {
+        $bookingId      = 4;
+        $newBookingData = [
+            'house_id'   => 4,
+            'comment'    => 'Updated booking',
+            'start_date' => (new DateTimeImmutable())
+                ->modify('+1 day')
+                ->format('Y-m-d'),
+            'end_date' => (new DateTimeImmutable())
+                ->modify('+1 month')
+                ->format('Y-m-d')
+        ];
+
+        self::$client->request(
+            method: 'PUT',
+            uri: sprintf(self::API_BOOKINGS_ID, $bookingId),
+            server: [
+                'CONTENT_TYPE'       => 'application/json',
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ],
+            content: json_encode($newBookingData)
+        );
+
+        $this->assertResponse(
+            self::$client->getResponse(),
+            Response::HTTP_FORBIDDEN,
+            BookingsMessages::validationFailed(
+                ['You cannot replace other users bookings']
+            )
+        );
     }
 
     /*
@@ -330,9 +576,8 @@ class BookingsControllerTest extends WebTestCase
     {
         $bookingId           = 999;
         $replacedBookingData = [
-            'house_id'     => 4,
-            'phone_number' => '+9876543210',
-            'start_date'   => (new DateTimeImmutable())
+            'house_id'   => 4,
+            'start_date' => (new DateTimeImmutable())
                 ->modify('+1 day')
                 ->format('Y-m-d'),
             'end_date' => (new DateTimeImmutable())
@@ -340,17 +585,23 @@ class BookingsControllerTest extends WebTestCase
                 ->format('Y-m-d')
         ];
 
-        $this->client->request(
+        self::$client->request(
             'PUT',
             sprintf(self::API_BOOKINGS_ID, $bookingId),
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json'],
+            [
+                'CONTENT_TYPE'       => 'application/json',
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ],
             json_encode($replacedBookingData)
         );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_NOT_FOUND,
             BookingsMessages::notFound()
         );
@@ -366,28 +617,36 @@ class BookingsControllerTest extends WebTestCase
     {
         $bookingId  = 2;
         $updateData = [
-            'comment'      => 'Updated comment',
-            'phone_number' => '+1112223333'
+            'comment' => 'Updated comment',
         ];
 
-        $this->client->request(
+        self::$client->request(
             'PATCH',
             sprintf(self::API_BOOKINGS_ID, $bookingId),
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json'],
+            [
+                'CONTENT_TYPE'       => 'application/json',
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ],
             json_encode($updateData)
         );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_OK,
             BookingsMessages::updated()
         );
 
-        $updatedBooking = self::$bookingsRepository->find($bookingId);
-        $this->assertEquals('Updated comment', $updatedBooking->getComment());
-        $this->assertEquals('+1112223333', $updatedBooking->getPhoneNumber());
+        $updatedBooking = self::$bookingsRepository->findBookingById($bookingId);
+        $this->assertNotNull($updatedBooking);
+        $this->assertEquals(
+            'Updated comment',
+            $updatedBooking->getComment()
+        );
     }
 
     /*
@@ -400,10 +659,19 @@ class BookingsControllerTest extends WebTestCase
     {
         $bookingId = 1;
 
-        $this->client->request('DELETE', sprintf(self::API_BOOKINGS_ID, $bookingId));
+        self::$client->request(
+            method: 'DELETE',
+            uri: sprintf(self::API_BOOKINGS_ID, $bookingId),
+            server: [
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ]
+        );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_OK,
             BookingsMessages::deleted()
         );
@@ -421,10 +689,19 @@ class BookingsControllerTest extends WebTestCase
     {
         $bookingId = 999;
 
-        $this->client->request('DELETE', sprintf(self::API_BOOKINGS_ID, $bookingId));
+        self::$client->request(
+            method: 'DELETE',
+            uri: sprintf(self::API_BOOKINGS_ID, $bookingId),
+            server: [
+                'HTTP_Authorization' => sprintf(
+                    'Bearer %s',
+                    self::$userTokens['access_token']
+                )
+            ]
+        );
 
         $this->assertResponse(
-            $this->client->getResponse(),
+            self::$client->getResponse(),
             Response::HTTP_NOT_FOUND,
             BookingsMessages::notFound()
         );

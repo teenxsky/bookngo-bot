@@ -6,6 +6,7 @@ namespace App\Repository;
 
 use App\Entity\Booking;
 use App\Entity\House;
+use App\Entity\User;
 use DateTime;
 use DateTimeImmutable;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -16,14 +17,11 @@ class BookingsRepository extends ServiceEntityRepository
 {
     private const BOOKING_FIELDS = [
         'id',
-        'phone_number',
+        'user_id',
         'house_id',
         'comment',
         'start_date',
         'end_date',
-        'telegram_chat_id',
-        'telegram_user_id',
-        'telegram_username',
     ];
 
     public function __construct(ManagerRegistry $registry)
@@ -56,16 +54,16 @@ class BookingsRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param int $userId
+     * @param bool|null $isActual
      * @return Booking[]
      */
-    public function findBookingsByCriteria(array $criteria, ?bool $isActual = null): array
+    public function findBookingsByUserId(int $userId, ?bool $isActual = null): array
     {
-        $qb = $this->createQueryBuilder('b');
-
-        foreach ($criteria as $field => $value) {
-            $qb->andWhere("b.$field = :$field")
-                ->setParameter($field, $value);
-        }
+        $qb = $this->createQueryBuilder('b')
+            ->join('b.user', 'u')
+            ->andWhere('u.id = :userId')
+            ->setParameter('userId', $userId);
 
         if ($isActual !== null) {
             $now = new DateTime();
@@ -95,14 +93,11 @@ class BookingsRepository extends ServiceEntityRepository
         $booking = $this->find($updatedBooking->getId());
         if ($booking) {
             ($booking)
-                ->setPhoneNumber($updatedBooking->getPhoneNumber())
+                ->setUser($updatedBooking->getUser())
                 ->setComment($updatedBooking->getComment())
                 ->setHouse($updatedBooking->getHouse())
                 ->setStartDate($updatedBooking->getStartDate())
-                ->setEndDate($updatedBooking->getEndDate())
-                ->setTelegramChatId($updatedBooking->getTelegramChatId())
-                ->setTelegramUserId($updatedBooking->getTelegramUserId())
-                ->setTelegramUsername($updatedBooking->getTelegramUsername());
+                ->setEndDate($updatedBooking->getEndDate());
 
             $entityManager->flush();
         }
@@ -143,20 +138,21 @@ class BookingsRepository extends ServiceEntityRepository
                 ->getRepository(House::class)
                 ->find((int) $row['house_id']);
 
+            $user = $this->getEntityManager()
+                ->getRepository(User::class)
+                ->find((int) $row['user_id']);
+
             if (!$house || !$row['start_date'] || !$row['end_date']) {
                 continue;
             }
 
             $booking = (new Booking())
                 ->setId((int) $row['id'])
-                ->setPhoneNumber((string) $row['phone_number'])
+                ->setUser($user)
                 ->setHouse($house)
                 ->setComment((string) $row['comment'])
                 ->setStartDate(new DateTimeImmutable($row['start_date']))
-                ->setEndDate(new DateTimeImmutable($row['end_date']))
-                ->setTelegramChatId((int) $row['telegram_chat_id'])
-                ->setTelegramUserId((int) $row['telegram_user_id'])
-                ->setTelegramUsername((string) $row['telegram_username']);
+                ->setEndDate(new DateTimeImmutable($row['end_date']));
 
             $this->addBooking($booking);
         }

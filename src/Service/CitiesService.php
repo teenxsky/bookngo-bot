@@ -25,24 +25,24 @@ class CitiesService
 
     /**
      * @param int $id
-     * @return array{
-     *    city: City|null,
-     *    error: string|null
-     * }
+     * @return City|null
      */
-    public function findCityById(int $id): array
+    public function findCityById(int $id): ?City
     {
-        $city = $this->cityRepo->findCityById($id);
+        return $this->cityRepo->findCityById($id);
+    }
+
+    /**
+     * @param int $id
+     * @return string|null
+     */
+    public function validateCityExists(int $id): ?string
+    {
+        $city = $this->findCityById($id);
         if (!$city) {
-            return [
-                'city'  => null,
-                'error' => CitiesMessages::NOT_FOUND
-            ];
+            return CitiesMessages::NOT_FOUND;
         }
-        return [
-            'city'  => $city,
-            'error' => null
-        ];
+        return null;
     }
 
     /**
@@ -77,42 +77,54 @@ class CitiesService
     }
 
     /**
-     * @param City $updatedCity
      * @param int $id
      * @return string|null
      */
-    public function updateCity(City $updatedCity, int $id): ?string
+    public function validateCityUpdate(int $id): ?string
     {
-        $result = $this->findCityById($id);
-        if ($result['error'] !== null) {
-            return $result['error'];
-        }
+        return $this->validateCityExists($id);
+    }
 
-        $existingCity = $result['city'];
+    /**
+     * @param City $updatedCity
+     * @param int $id
+     * @return void
+     */
+    public function updateCity(City $updatedCity, int $id): void
+    {
+        $existingCity = $this->findCityById($id);
         $existingCity
             ->setName($updatedCity->getName())
             ->setCountry($updatedCity->getCountry());
 
         $this->cityRepo->updateCity($existingCity);
-        return null;
     }
 
     /**
      * @param int $id
      * @return string|null
      */
-    public function deleteCity(int $id): ?string
+    public function validateCityDeletion(int $id): ?string
     {
-        $result = $this->findCityById($id);
-        if ($result['error'] !== null) {
-            return $result['error'];
+        $validationError = $this->validateCityExists($id);
+        if ($validationError) {
+            return $validationError;
         }
 
-        if ($result['city']->getHouses()->count() > 0) {
+        $city = $this->findCityById($id);
+        if ($city->getHouses()->count() > 0) {
             return CitiesMessages::HAS_HOUSES;
         }
 
-        $this->cityRepo->deleteCityById($id);
         return null;
+    }
+
+    /**
+     * @param int $id
+     * @return void
+     */
+    public function deleteCity(int $id): void
+    {
+        $this->cityRepo->deleteCityById($id);
     }
 }
