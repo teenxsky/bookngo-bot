@@ -1,6 +1,7 @@
 #!/bin/bash
 
 composer install --no-interaction --no-scripts
+bin/console assets:install
 
 if [ "$DATABASE"="postgres" ]
 then
