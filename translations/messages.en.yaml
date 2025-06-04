@@ -1,0 +1,123 @@
+admin:
+  general:
+    id: ID
+    actions: Actions
+    show: View
+    image: Image
+    no_image: No image
+    view_full_image: View full image
+    warning: Warning
+
+  login:
+    title: Book&Go
+    sign_in: Log in
+    remember_me: Remember me
+    submit: Login
+    phone_number: Phone Number
+    password: Password
+
+  menu:
+    houses_management: Houses Management
+    location_management: Location Management
+    booking_management: Booking Management
+    user_management: User Management
+
+  houses:
+    title: Houses
+    address: Address
+    bedrooms_count: Bedrooms
+    price_per_night: Price per night
+    city: City
+    country: Country
+    amenities: Amenities
+    has_air_conditioning: Air Conditioning
+    has_wifi: Wi-Fi
+    has_kitchen: Kitchen
+    has_parking: Parking
+    has_sea_view: Sea View
+    image_url: Image URL
+    basic_info: Basic Information
+    general: General
+    media: Media
+    features: Features
+    bookings_count: Bookings Count
+    bookings: Bookings
+    delete:
+      title: "Confirmation of removal houses"
+      confirmation: "Are you sure you want to delete selected houses?"
+      bookings_warning: "Removing houses will lead to the removal of all their bookings."
+
+  cities:
+    title: Cities
+    create_title: Create City
+    edit_title: Edit City
+    show_title: City Details
+    name: City Name
+    country: Country
+    delete:
+      title: "Confirmation of removal cities"
+      confirmation: "Are you sure you want to delete selected cities?"
+      bookings_warning: "Removing cities will lead to the removal of all their houses and bookings."
+
+  countries:
+    title: Countries
+    create_title: Create Country
+    edit_title: Edit Country
+    show_title: Country Details
+    name: Country Name
+    delete:
+      title: "Confirmation of removal countries"
+      confirmation: "Are you sure you want to delete selected countries?"
+      bookings_warning: "Removing users will lead to the removal of all their cities, houses and bookings."
+
+  bookings:
+    title: Bookings
+    create_title: Create Booking
+    edit_title: Edit Booking
+    show_title: Booking Details
+    phone: Phone
+    telegram: Telegram
+    house: House
+    start_date: Start Date
+    end_date: End Date
+    dates: Dates
+    comment: Comment
+    user: User
+    from: From
+    to: To
+
+  users:
+    title: Users
+    create_title: Create User
+    edit_title: Edit User
+    show_title: User Details
+    phone_number: Phone Number
+    roles: Roles
+    telegram_username: Telegram Username
+    telegram_user_id: Telegram User ID
+    telegram_chat_id: Telegram Chat ID
+    password: Password
+    user_bookings: User Bookings
+    no_bookings: No bookings.
+    token_version: Token Version
+    role:
+      admin: Admin
+      user: User
+    delete:
+      title: "Confirmation of removal users"
+      confirmation: "Are you sure you want to delete selected users?"
+      bookings_warning: "Removing users will lead to the removal of all their bookings."
+  
+  constraints:
+    phone_number:
+      format: The phone number should be in format +1234567890123
+      min_length: Phone number must be at least {{ limit }} characters long
+      max_length: Phone number cannot be longer than {{ limit }} characters
+    roles:
+      min_count: Minimum {{ limit }} roles are required
+    telegram_username:
+      max_length: Telegram username cannot be longer than {{ limit }} characters
+    house_address:
+      max_length: Address cannot be longer than {{ limit }} characters
+    country_name:
+      max_length: Country name cannot be longer than {{ limit }} characters'

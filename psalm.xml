@@ -18,7 +18,6 @@
         <directory name="src"/>
         <directory name="tests"/>
         <ignoreFiles>
-            <directory name="src/Controller/Admin"/>
             <directory name="bin"/>
             <directory name="var"/>
             <directory name="vendor"/>

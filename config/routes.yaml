@@ -4,8 +4,5 @@ controllers:
         namespace: App\Controller
     type: attribute
 
-# api_refresh_token:
-#     path: /api/v1/users/refresh
-
-# api_login_check:
-#     path: /api/v1/users/login
+sonata_translation:
+    resource: '@SonataTranslationBundle/Resources/config/routes.yaml'

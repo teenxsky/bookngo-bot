@@ -1,0 +1,123 @@
+admin:
+  general:
+    id: ID
+    actions: Действия
+    show: Просмотр
+    image: Изображение
+    no_image: Нет изображения
+    view_full_image: Просмотреть полное изображение
+    warning: Предупреждение
+
+  login:
+    title: Book&Go
+    sign_in: Войти
+    remember_me: Запомнить меня
+    submit: Войти
+    phone_number: Номер телефона
+    password: Пароль
+
+  menu:
+    houses_management: Управление Домами
+    location_management: Управление Локацииями
+    booking_management: Управление Бронями
+    user_management: Управление Клиентами
+
+  houses:
+    title: Дома
+    address: Адрес
+    bedrooms_count: Количество спален
+    price_per_night: Цена за ночь
+    city: Город
+    country: Страна
+    amenities: Удобства
+    has_air_conditioning: Кондиционер
+    has_wifi: Wi-Fi
+    has_kitchen: Кухня
+    has_parking: Парковка
+    has_sea_view: Вид на море
+    image_url: URL изображения
+    basic_info: Основная информация
+    general: Общие сведения
+    media: Медиа
+    features: Характеристики
+    bookings_count: Количество бронирований
+    bookings: Бронирования
+    delete:
+      title: "Подтверждение удаления домов"
+      confirmation: "Вы уверены, что хотите удалить выбранные дома?"
+      bookings_warning: "Удаление дома приведёт к удалению всех его бронирований."
+
+  cities:
+    title: Города
+    create_title: Создать город
+    edit_title: Редактировать город
+    show_title: Информация о городе
+    name: Название города
+    country: Страна
+    delete:
+      title: "Подтверждение удаления городов"
+      confirmation: "Вы уверены, что хотите удалить выбранные города?"
+      bookings_warning: "Удаление города приведёт к удалению всех её домов и бронирований."
+
+  countries:
+    title: Страны
+    create_title: Создать страну
+    edit_title: Редактировать страну
+    show_title: Информация о стране
+    name: Название страны
+    delete:
+      title: "Подтверждение удаления стран"
+      confirmation: "Вы уверены, что хотите удалить выбранные страны?"
+      bookings_warning: "Удаление страны приведёт к удалению всех её городов, домов и бронирований."
+
+  bookings:
+    title: Бронирования
+    create_title: Создать бронирование
+    edit_title: Редактировать бронирование
+    show_title: Детали бронирования
+    phone: Телефон
+    telegram: Телеграм
+    house: Дом
+    start_date: Дата начала
+    end_date: Дата окончания
+    dates: Даты
+    comment: Комментарий
+    user: Пользователь
+    from: С
+    to: По
+
+  users:
+    title: Пользователи
+    create_title: Создать пользователя
+    edit_title: Редактировать пользователя
+    show_title: Информация о пользователе
+    phone_number: Номер телефона
+    roles: Роли
+    telegram_username: Имя пользователя в Telegram
+    telegram_user_id: ID пользователя Telegram
+    telegram_chat_id: ID чата Telegram
+    password: Пароль
+    user_bookings: Бронирования пользователя
+    no_bookings: Нет броней.
+    token_version: Версия токена
+    role:
+      admin: Администратор
+      user: Пользователь
+    delete:
+      title: "Подтверждение удаления пользователей"
+      confirmation: "Вы уверены, что хотите удалить выбранных пользователей?"
+      bookings_warning: "Удаление пользователей приведёт к удалению всех их бронирований."
+
+  constraints:
+    phone_number:
+      format: Номер телефона должен быть в формате +1234567890123
+      min_length: Номер телефона должен содержать не менее {{ limit }} символов
+      max_length: Номер телефона не может быть длиннее {{ limit }} символов
+    roles:
+      min_count: "Минимальное требуемое количество ролей: {{ limit }}"
+    telegram_username:
+      max_length: Имя пользователя в Telegram не может быть длиннее {{ limit }} символов
+    house_address:
+      max_length: Адрес не может быть длиннее {{ limit }} символов
+    country_name:
+      max_length: Название страны не может быть длиннее {{ limit }} символов
