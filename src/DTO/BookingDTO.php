@@ -12,7 +12,7 @@ use Override;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
-class BookingDTO extends BaseDTO
+class BookingDTO implements BaseDTO
 {
     #[Groups(['read'])]
     public ?int $id = null;
@@ -61,8 +61,8 @@ class BookingDTO extends BaseDTO
             'id'                => $this->id,
             'house_id'          => $this->houseId,
             'comment'           => $this->comment,
-            'start_date'        => $this->startDate ? $this->startDate->format('Y-m-d') : null,
-            'end_date'          => $this->endDate ? $this->endDate->format('Y-m-d') : null,
+            'start_date'        => $this->startDate !== null ? $this->startDate->format('Y-m-d') : null,
+            'end_date'          => $this->endDate   !== null ? $this->endDate->format('Y-m-d') : null,
             'phone_number'      => $this->phoneNumber,
             'telegram_chat_id'  => $this->telegramChatId,
             'telegram_user_id'  => $this->telegramUserId,

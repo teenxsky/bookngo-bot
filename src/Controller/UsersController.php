@@ -22,6 +22,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Component\Serializer\Exception\NotEncodableValueException;
+use UnexpectedValueException;
 
 #[Route('/api/v1/users', name: 'api_v1_users_')]
 #[OA\Tag(name: 'Users')]
@@ -213,7 +215,7 @@ class UsersController extends AbstractController
     public function logout(Request $request): JsonResponse
     {
         try {
-            $refreshToken = $this->dtoSerializer->getRefreshTokenFromRequest($request);
+            $refreshToken = $this->getRefreshTokenFromRequest($request);
         } catch (Exception $e) {
             return new JsonResponse(
                 UsersMessages::deserializationFailed(
@@ -278,7 +280,7 @@ class UsersController extends AbstractController
     public function refresh(Request $request): JsonResponse
     {
         try {
-            $refreshToken = $this->dtoSerializer->getRefreshTokenFromRequest($request);
+            $refreshToken = $this->getRefreshTokenFromRequest($request);
         } catch (Exception $e) {
             return new JsonResponse(
                 UsersMessages::deserializationFailed(
@@ -335,5 +337,33 @@ class UsersController extends AbstractController
             $userDTO->toArray(),
             Response::HTTP_OK,
         );
+    }
+
+    /**
+     * @param Request $request
+     * @return string
+     * @throws Exception
+     */
+    private function getRefreshTokenFromRequest(Request $request): string
+    {
+        if ($request->getContentTypeFormat() !== 'json') {
+            throw new Exception('Unsupported content type');
+        }
+
+        try {
+            $data = json_decode($request->getContent(), true);
+
+            if (!isset($data['refresh_token'])) {
+                throw new Exception('Field "refresh_token" is required.');
+            }
+
+            if (!is_string($data['refresh_token'])) {
+                throw new Exception('Field "refresh_token" must be a string.');
+            }
+
+            return $data['refresh_token'];
+        } catch (NotEncodableValueException | UnexpectedValueException $e) {
+            throw new Exception($e->getMessage());
+        }
     }
 }
