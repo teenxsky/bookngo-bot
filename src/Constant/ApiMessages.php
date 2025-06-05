@@ -12,6 +12,10 @@ namespace App\Constant;
  */
 class ApiMessages
 {
+    public const ACCESS_DENIED          = 'Access denied.';
+    public const VALIDATION_FAILED      = 'Validation failed.';
+    public const DESERIALIZATION_FAILED = 'Deserialization failed.';
+
     /**
      * @param string $message
      * @param array $errors
@@ -33,10 +37,22 @@ class ApiMessages
      * @param array $errors
      * @return array{message:string,errors?:array}
      */
+    public static function accessDenied(array $errors): array
+    {
+        return self::buildMessage(
+            self::ACCESS_DENIED,
+            $errors
+        );
+    }
+
+    /**
+     * @param array $errors
+     * @return array{message:string,errors?:array}
+     */
     public static function validationFailed(array $errors): array
     {
         return self::buildMessage(
-            'Validation failed',
+            self::VALIDATION_FAILED,
             $errors
         );
     }
@@ -48,7 +64,7 @@ class ApiMessages
     public static function deserializationFailed(array $errors): array
     {
         return self::buildMessage(
-            'Deserialization failed',
+            self::DESERIALIZATION_FAILED,
             $errors
         );
     }

@@ -6,6 +6,7 @@ namespace App\Tests\Controller;
 
 use App\Constant\BookingsMessages;
 use App\Constant\HousesMessages;
+use App\DTO\DTOFactory;
 use App\Entity\Booking;
 use App\Entity\City;
 use App\Entity\Country;
@@ -36,6 +37,8 @@ class BookingsControllerTest extends WebTestCase
     private static CountriesRepository $countriesRepository;
     /** @var BookingsRepository $bookingsRepository */
     private static BookingsRepository $bookingsRepository;
+
+    private DTOFactory $dtoFactory;
 
     private static KernelBrowser $client;
     private EntityManagerInterface $entityManager;
@@ -199,6 +202,8 @@ class BookingsControllerTest extends WebTestCase
         self::$bookingsRepository = $this->entityManager->getRepository(
             Booking::class
         );
+
+        $this->dtoFactory = new DTOFactory();
     }
 
     private function assertResponse(
@@ -228,20 +233,21 @@ class BookingsControllerTest extends WebTestCase
      */
     public function testUserListBookings(): void
     {
-        $expectedBookings = array_merge(
-            array_map(
-                fn ($booking) => $booking->toArray(),
-                self::$bookingsRepository->findBookingsByUserId(
-                    userId: 1,
-                    isActual: true
-                )
-            ),
-            array_map(
-                fn ($booking) => $booking->toArray(),
-                self::$bookingsRepository->findBookingsByUserId(
-                    userId: 1,
-                    isActual: false
-                )
+        $expectedBookings = array_map(
+            fn ($dto) => $dto->toArray(),
+            array_merge(
+                $this->dtoFactory->createFromEntities(
+                    self::$bookingsRepository->findBookingsByUserId(
+                        userId: 1,
+                        isActual: true
+                    )
+                ),
+                $this->dtoFactory->createFromEntities(
+                    self::$bookingsRepository->findBookingsByUserId(
+                        userId: 1,
+                        isActual: false
+                    )
+                ),
             )
         );
 
@@ -271,8 +277,10 @@ class BookingsControllerTest extends WebTestCase
     public function testAdminListBookings(): void
     {
         $expectedBookings = array_map(
-            fn ($booking) => $booking->toArray(),
-            self::$bookingsRepository->findAllBookings()
+            fn ($dto) => $dto->toArray(),
+            $this->dtoFactory->createFromEntities(
+                self::$bookingsRepository->findAllBookings()
+            )
         );
 
         self::$client->request(
@@ -301,7 +309,9 @@ class BookingsControllerTest extends WebTestCase
     public function testGetBookingById(): void
     {
         $bookingId       = 1;
-        $expectedBooking = self::$bookingsRepository->find($bookingId)->toArray();
+        $expectedBooking = $this->dtoFactory->createFromEntity(
+            self::$bookingsRepository->find($bookingId)
+        )->toArray();
 
         self::$client->request(
             method: 'GET',
@@ -429,7 +439,7 @@ class BookingsControllerTest extends WebTestCase
             true
         );
         $this->assertEquals(
-            'Validation failed',
+            BookingsMessages::VALIDATION_FAILED,
             $responseData['message']
         );
         $this->assertArrayHasKey('errors', $responseData);
@@ -560,7 +570,7 @@ class BookingsControllerTest extends WebTestCase
         $this->assertResponse(
             self::$client->getResponse(),
             Response::HTTP_FORBIDDEN,
-            BookingsMessages::validationFailed(
+            BookingsMessages::accessDenied(
                 ['You cannot replace other users bookings']
             )
         );

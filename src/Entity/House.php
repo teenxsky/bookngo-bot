@@ -8,8 +8,6 @@ use App\Repository\HousesRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Attribute\Ignore;
-use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: HousesRepository::class)]
 #[ORM\Table(name: 'houses')]
@@ -21,65 +19,37 @@ class House
     private ?int $id = null;
 
     #[ORM\Column(length: 255, unique: true)]
-    #[Assert\NotNull]
-    #[Assert\Type('string')]
-    #[Assert\Length(
-        max: 255,
-        maxMessage: 'Address cannot be longer than {{ limit }} characters'
-    )]
     private ?string $address = null;
 
     #[ORM\Column(length: 20)]
-    #[Assert\NotNull]
-    #[Assert\Type('integer')]
-    #[Assert\Range(min: 1, max: 20)]
     private ?int $bedroomsCount = null;
 
     #[ORM\Column(length: 100000)]
-    #[Assert\NotNull]
-    #[Assert\Type('integer')]
-    #[Assert\Range(min: 100, max: 100000)]
     private ?int $pricePerNight = null;
 
     #[ORM\Column]
-    #[Assert\NotNull]
-    #[Assert\Type('boolean')]
     private ?bool $hasAirConditioning = null;
 
     #[ORM\Column]
-    #[Assert\NotNull]
-    #[Assert\Type('boolean')]
     private ?bool $hasWifi = null;
 
     #[ORM\Column]
-    #[Assert\NotNull]
-    #[Assert\Type('boolean')]
     private ?bool $hasKitchen = null;
 
     #[ORM\Column]
-    #[Assert\NotNull]
-    #[Assert\Type('boolean')]
     private ?bool $hasParking = null;
 
     #[ORM\Column]
-    #[Assert\NotNull]
-    #[Assert\Type('boolean')]
     private ?bool $hasSeaView = null;
 
     #[ORM\ManyToOne(inversedBy: 'houses', cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: false)]
-    #[Assert\NotNull]
-    private ?City $city = null;
+    private City $city;
 
     #[ORM\OneToMany(mappedBy: 'house', targetEntity: Booking::class)]
     private Collection $bookings;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Assert\Type('string')]
-    #[Assert\Url(
-        message: 'The image URL {{ value }} is not a valid URL',
-        requireTld: true
-    )]
     private ?string $imageUrl = null;
 
     public function __construct()
@@ -138,7 +108,6 @@ class House
         return $this;
     }
 
-    #[Ignore]
     public function hasAirConditioning(): ?bool
     {
         return $this->hasAirConditioning;
@@ -151,7 +120,6 @@ class House
         return $this;
     }
 
-    #[Ignore]
     public function hasWifi(): ?bool
     {
         return $this->hasWifi;
@@ -164,7 +132,6 @@ class House
         return $this;
     }
 
-    #[Ignore]
     public function hasKitchen(): ?bool
     {
         return $this->hasKitchen;
@@ -177,7 +144,6 @@ class House
         return $this;
     }
 
-    #[Ignore]
     public function hasParking(): ?bool
     {
         return $this->hasParking;
@@ -190,7 +156,6 @@ class House
         return $this;
     }
 
-    #[Ignore]
     public function hasSeaView(): ?bool
     {
         return $this->hasSeaView;
@@ -246,37 +211,5 @@ class House
         $this->imageUrl = $imageUrl;
 
         return $this;
-    }
-
-    /**
-     * @return array{
-     *     id: int,
-     *     city_id: int,
-     *     address: string,
-     *     is_available: bool,
-     *     bedrooms_count: int,
-     *     price_per_night: float,
-     *     has_air_conditioning: bool,
-     *     has_wifi: bool,
-     *     has_kitchen: bool,
-     *     has_parking: bool,
-     *     has_sea_view: bool,
-     * }
-     */
-    public function toArray(): ?array
-    {
-        return [
-            'id'                   => $this->getId(),
-            'city_id'              => $this->getCity()->getId(),
-            'address'              => $this->getAddress(),
-            'bedrooms_count'       => $this->getBedroomsCount(),
-            'price_per_night'      => $this->getPricePerNight(),
-            'has_air_conditioning' => $this->hasAirConditioning(),
-            'has_wifi'             => $this->hasWifi(),
-            'has_kitchen'          => $this->hasKitchen(),
-            'has_parking'          => $this->hasParking(),
-            'has_sea_view'         => $this->hasSeaView(),
-            'image_url'            => $this->getImageUrl(),
-        ];
     }
 }

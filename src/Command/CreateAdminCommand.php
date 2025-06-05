@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use App\Entity\User;
+use App\DTO\UserDTO;
 use App\Service\UsersService;
-use App\Validator\EntityValidator;
+use App\Validator\DTOValidator;
 use Exception;
 use Override;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -26,7 +26,7 @@ class CreateAdminCommand extends Command
 {
     public function __construct(
         private readonly UsersService $usersService,
-        private readonly EntityValidator $entityValidator
+        private readonly DTOValidator $dtoValidator
     ) {
         parent::__construct();
     }
@@ -49,21 +49,21 @@ class CreateAdminCommand extends Command
                 return Command::FAILURE;
             }
 
-            $user = (new User())
-                ->setPhoneNumber($phoneNumber)
-                ->setPassword($password);
+            $userDTO              = new UserDTO();
+            $userDTO->password    = $password;
+            $userDTO->phoneNumber = $phoneNumber;
 
-            $validationError = $this->entityValidator->validate($user);
-            if ($validationError) {
+            $validationErrors = $this->dtoValidator->validate($userDTO);
+            if ($validationErrors) {
                 $io->error(
-                    $validationError['field'] . ': ' . ($validationError['message'] ?? '')
+                    $validationErrors[0]['field'] . ': ' . ($validationErrors[0]['message'] ?? '')
                 );
                 return Command::FAILURE;
             }
 
             $registrationError = $this->usersService->registerApiUser(
-                phoneNumber: $user->getPhoneNumber(),
-                password: $user->getPassword(),
+                phoneNumber: $userDTO->phoneNumber,
+                password: $userDTO->password,
                 isAdmin: true
             );
             if ($registrationError) {

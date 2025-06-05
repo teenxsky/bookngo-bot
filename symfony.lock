@@ -1,4 +1,13 @@
 {
+    "doctrine/deprecations": {
+        "version": "1.1",
+        "recipe": {
+            "repo": "github.com/symfony/recipes",
+            "branch": "main",
+            "version": "1.0",
+            "ref": "87424683adc81d7dc305eefec1fced883084aab9"
+        }
+    },
     "doctrine/doctrine-bundle": {
         "version": "2.13",
         "recipe": {
@@ -75,6 +84,15 @@
         "files": [
             "config/packages/lexik_jwt_authentication.yaml"
         ]
+    },
+    "nelmio/api-doc-bundle": {
+        "version": "4.20",
+        "recipe": {
+            "repo": "github.com/symfony/recipes-contrib",
+            "branch": "main",
+            "version": "3.0",
+            "ref": "c8e0c38e1a280ab9e37587a8fa32b251d5bc1c94"
+        }
     },
     "phpunit/phpunit": {
         "version": "9.6",

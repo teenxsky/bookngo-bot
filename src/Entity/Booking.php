@@ -7,7 +7,6 @@ namespace App\Entity;
 use App\Repository\BookingsRepository;
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: BookingsRepository::class)]
 #[ORM\Table(name: 'bookings')]
@@ -23,19 +22,12 @@ class Booking
     private ?House $house = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Assert\Type('string')]
-    #[Assert\Length(
-        max: 255,
-        maxMessage: 'Comment cannot be longer than {{ limit }} characters'
-    )]
     private ?string $comment = null;
 
     #[ORM\Column]
-    #[Assert\NotNull]
     private ?DateTimeImmutable $startDate = null;
 
     #[ORM\Column]
-    #[Assert\NotNull]
     private ?DateTimeImmutable $endDate = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
@@ -109,33 +101,5 @@ class Booking
     {
         $this->endDate = $endDate;
         return $this;
-    }
-
-    /**
-     * @return ?array{
-     *     id: int,
-     *     phone_number: string,
-     *     house_id: int,
-     *     comment: string,
-     *     start_date: string,
-     *     end_date: string,
-     *     telegram_chat_id: int,
-     *     telegram_user_id: int,
-     *     telegram_username: string,
-     * }
-     */
-    public function toArray(): ?array
-    {
-        return [
-            'id'                => $this->getId(),
-            'phone_number'      => $this->getUser()?->getPhoneNumber() ?? null,
-            'house_id'          => $this->getHouse()?->getId()         ?? null,
-            'comment'           => $this->getComment(),
-            'start_date'        => $this->getStartDate()->format('Y-m-d'),
-            'end_date'          => $this->getEndDate()->format('Y-m-d'),
-            'telegram_chat_id'  => $this->getUser()?->getTelegramChatId()   ?? null,
-            'telegram_user_id'  => $this->getUser()?->getTelegramUserId()   ?? null,
-            'telegram_username' => $this->getUser()?->getTelegramUsername() ?? null,
-        ];
     }
 }

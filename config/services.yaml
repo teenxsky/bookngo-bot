@@ -19,9 +19,19 @@ services:
       - "../src/DependencyInjection/"
       - "../src/Entity/"
       - "../src/Kernel.php"
+      - "../src/DTO/"
 
-  # add more service definitions when explicit configuration is needed
-  # please note that last definitions always *replace* previous ones
+  App\DTO\DTOFactory:
+    autowire: true
+    public: true
+
+  App\Serializer\DTOSerializer:
+    autowire: true
+    public: true
+
+  App\Validator\DTOValidator:
+    autowire: true
+    public: true
 
   App\Command\LoadStorageDataCommand:
     arguments:

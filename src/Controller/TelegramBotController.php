@@ -6,6 +6,11 @@ namespace App\Controller;
 
 use App\Constant\Telegram\Buttons as TelegramButtons;
 use App\Constant\Telegram\Messages as TelegramMessages;
+use App\DTO\BookingDTO;
+use App\DTO\CityDTO;
+use App\DTO\CountryDTO;
+use App\DTO\DTOFactory;
+use App\DTO\HouseDTO;
 use App\Entity\Booking;
 use App\Service\BookingsService;
 use App\Service\CitiesService;
@@ -21,7 +26,6 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Serializer\SerializerInterface;
 use TelegramBot\Api\BotApi;
 use TelegramBot\Api\Types\Inline\InlineKeyboardMarkup;
 use TelegramBot\Api\Types\Update;
@@ -38,9 +42,9 @@ class TelegramBotController extends AbstractController
         private CitiesService $citiesService,
         private CountriesService $countriesService,
         private UsersService $usersService,
-        private SerializerInterface $serializer,
         private WorkflowStateManager $stateManager,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private DTOFactory $dtoFactory
     ) {
         $this->sessionsManager = new SessionManager(
             $_ENV['REDIS_HOST'],
@@ -84,7 +88,7 @@ class TelegramBotController extends AbstractController
             $this->logger->critical($message);
         }
 
-        return new JsonResponse(status: Response::HTTP_NO_CONTENT);
+        return new JsonResponse(status: Response::HTTP_OK);
     }
 
     private function handleMessage(Update $update): void
@@ -351,15 +355,19 @@ class TelegramBotController extends AbstractController
             isActual: $isActual
         );
 
+        /** @var BookingDTO[] $bookingDTOs */
+        $bookingDTOs = $this->dtoFactory->createFromEntities($bookings);
+
         $buttons = [];
-        foreach ($bookings as $booking) {
+        foreach ($bookingDTOs as $bookingDTO) {
+            $booking   = $this->bookingsService->findBookingById($bookingDTO->id);
             $buttons[] = [
                 TelegramButtons::bookingAddress(
                     "{$booking->getHouse()->getCity()->getName()}, {$booking->getHouse()->getAddress()}",
                     $this->stateManager->buildCallback(
                         $this->stateManager::BOOKING_INFO,
                         [],
-                        $booking->getId()
+                        $bookingDTO->id
                     )
                 )
             ];
@@ -401,7 +409,11 @@ class TelegramBotController extends AbstractController
         $state   = $this->stateManager::BOOKING_INFO;
         $session = $this->sessionsManager->getSession($chatId);
 
-        $booking    = $this->bookingsService->findBookingById($bookingId);
+        $booking = $this->bookingsService->findBookingById($bookingId);
+
+        /** @var BookingDTO $bookingDTO */
+        $bookingDTO = $this->dtoFactory->createFromEntity($booking);
+
         $totalPrice = $this->bookingsService->calculateTotalPrice(
             $booking->getHouse(),
             $booking->getStartDate(),
@@ -414,9 +426,9 @@ class TelegramBotController extends AbstractController
             $booking->getHouse()->getCity()->getCountry()->getName(),
             $booking->getHouse()->getCity()->getName(),
             $booking->getHouse()->getAddress(),
-            $booking->getComment() ?? 'None',
-            $booking->getStartDate()->format('Y-m-d'),
-            $booking->getEndDate()->format('Y-m-d'),
+            $bookingDTO->comment ?? 'None',
+            $bookingDTO->startDate->format('Y-m-d'),
+            $bookingDTO->endDate->format('Y-m-d'),
             $totalPrice
         );
 
@@ -522,17 +534,20 @@ class TelegramBotController extends AbstractController
         $session   = $this->sessionsManager->getSession($chatId);
         $countries = $this->countriesService->findAllCountries();
 
+        /** @var CountryDTO[] $countryDTOs */
+        $countryDTOs = $this->dtoFactory->createFromEntities($countries);
+
         $buttons = [];
-        foreach ($countries as $country) {
+        foreach ($countryDTOs as $countryDTO) {
             $buttons[] = [
                 TelegramButtons::country(
-                    $country->getName(),
+                    $countryDTO->name,
                     $this->stateManager->buildCallback(
                         $this->stateManager::getNext(
                             $state
                         ),
                         [],
-                        $country->getId()
+                        $countryDTO->id
                     )
                 )
             ];
@@ -569,15 +584,18 @@ class TelegramBotController extends AbstractController
 
         $cities = $this->citiesService->findCitiesByCountryId($countryId);
 
+        /** @var CityDTO[] $cityDTOs */
+        $cityDTOs = $this->dtoFactory->createFromEntities($cities);
+
         $buttons = [];
-        foreach ($cities as $city) {
+        foreach ($cityDTOs as $cityDTO) {
             $buttons[] = [
                 TelegramButtons::city(
-                    $city->getName(),
+                    $cityDTO->name,
                     $this->stateManager->buildCallback(
                         $this->stateManager::getNext($state),
                         [],
-                        $city->getId()
+                        $cityDTO->id
                     )
                 )
             ];
@@ -713,27 +731,32 @@ class TelegramBotController extends AbstractController
             $endDate
         );
 
-        foreach ($houses as $house) {
+        /** @var HouseDTO[] $houseDTOs */
+        $houseDTOs = $this->dtoFactory->createFromEntities($houses);
+
+        foreach ($houseDTOs as $houseDTO) {
+            $house = $this->housesService->findHouseById($houseDTO->id);
+
             $message = sprintf(
                 TelegramMessages::HOUSE_INFO_FORMAT,
-                $house->getId(),
-                $house->getPricePerNight(),
+                $houseDTO->id,
+                $houseDTO->pricePerNight,
                 $house->getCity()->getCountry()->getName(),
                 $house->getCity()->getName(),
-                $house->getAddress(),
-                $house->getBedroomsCount(),
-                $house->hasSeaView() ? 'Yes' : 'No',
-                $house->hasWifi() ? 'Yes' : 'No',
-                $house->hasKitchen() ? 'Yes' : 'No',
-                $house->hasParking() ? 'Yes' : 'No',
-                $house->hasAirConditioning() ? 'Yes' : 'No',
+                $houseDTO->address,
+                $houseDTO->bedroomsCount,
+                $houseDTO->hasSeaView ? 'Yes' : 'No',
+                $houseDTO->hasWifi ? 'Yes' : 'No',
+                $houseDTO->hasKitchen ? 'Yes' : 'No',
+                $houseDTO->hasParking ? 'Yes' : 'No',
+                $houseDTO->hasAirConditioning ? 'Yes' : 'No',
             );
             $this->sendMessage(
                 $chatId,
                 $message,
                 null,
                 null,
-                $house->getImageUrl()
+                $houseDTO->imageUrl
             );
         }
 
@@ -875,8 +898,12 @@ class TelegramBotController extends AbstractController
 
             $this->showBookingSummary($chatId);
         } else {
-            $updatedBooking = (new Booking())
-                ->setComment($comment);
+            $bookingDTO          = new BookingDTO();
+            $bookingDTO->comment = $comment;
+
+            $updatedBooking = new Booking();
+            $this->dtoFactory->mapToEntity($bookingDTO, $updatedBooking);
+
             $this->bookingsService->updateBooking(
                 $updatedBooking,
                 $session['data']['booking_id']

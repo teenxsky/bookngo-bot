@@ -30,14 +30,14 @@ class BookingsService
         ?string $telegramUsername = null,
         bool $isTelegramUser = false
     ): ?string {
-        if (!$isTelegramUser) {
-            $user = $this->usersService->findUserByPhoneNumber($phoneNumber);
-            if (!$user) {
+        if ($isTelegramUser) {
+            $user = $this->usersService->findUserByTelegramUsername($telegramUsername);
+            if (!$user && !$telegramUsername) {
                 return UsersMessages::NOT_FOUND;
             }
         } else {
-            $user = $this->usersService->findUserByTelegramUsername($telegramUsername);
-            if (!$user && !$telegramUsername) {
+            $user = $this->usersService->findUserByPhoneNumber($phoneNumber);
+            if (!$user) {
                 return UsersMessages::NOT_FOUND;
             }
         }
@@ -215,6 +215,14 @@ class BookingsService
         $existingBooking = $this->bookingsRepo->findBookingById($id);
         if (!$existingBooking) {
             return BookingsMessages::NOT_FOUND;
+        }
+
+        if ($updatedBooking->getHouse() && $existingBooking->getHouse()->getId() !== $updatedBooking->getHouse()->getId()) {
+            $houseId = $updatedBooking->getHouse()->getId();
+            $house   = $this->housesService->findHouseById($houseId);
+            if (!$house) {
+                return HousesMessages::NOT_FOUND;
+            }
         }
 
         if (

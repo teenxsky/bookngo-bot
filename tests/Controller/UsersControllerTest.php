@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Controller;
 
 use App\Constant\UsersMessages;
+use App\DTO\DTOFactory;
 use App\Entity\User;
 use App\Repository\UsersRepository;
 use App\Service\UsersService;
@@ -22,6 +23,8 @@ class UsersControllerTest extends WebTestCase
     /** @var UsersRepository $usersRepository */
     private static UsersRepository $usersRepository;
     private static UsersService $usersService;
+
+    private DTOFactory $dtoFactory;
 
     private static KernelBrowser $client;
     private EntityManagerInterface $entityManager;
@@ -131,6 +134,8 @@ class UsersControllerTest extends WebTestCase
                 self::ADMIN_PHONE_NUMBER,
             );
         }
+
+        $this->dtoFactory = new DTOFactory();
     }
 
     private function assertResponse(
@@ -342,10 +347,9 @@ class UsersControllerTest extends WebTestCase
         $this->assertResponse(
             self::$client->getResponse(),
             Response::HTTP_OK,
-            (new User())
-                ->setId(1)
-                ->setPhoneNumber(self::USER_PHONE_NUMBER)
-                ->toArray()
+            $this->dtoFactory->createFromEntity(
+                self::$usersRepository->find(1)
+            )->toArray(),
         );
     }
 
@@ -492,11 +496,9 @@ class UsersControllerTest extends WebTestCase
         $this->assertResponse(
             self::$client->getResponse(),
             Response::HTTP_OK,
-            (new User())
-                ->setId(2)
-                ->setPhoneNumber(self::ADMIN_PHONE_NUMBER)
-                ->setRoles(['ROLE_USER', 'ROLE_ADMIN'])
-                ->toArray()
+            $this->dtoFactory->createFromEntity(
+                self::$usersRepository->find(2)
+            )->toArray(),
         );
     }
 }
