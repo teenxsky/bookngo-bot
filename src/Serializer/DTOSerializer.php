@@ -58,32 +58,4 @@ class DTOSerializer
             throw new Exception($e->getMessage());
         }
     }
-
-    /**
-     * @param Request $request
-     * @return string
-     * @throws Exception
-     */
-    public function getRefreshTokenFromRequest(Request $request): string
-    {
-        if ($request->getContentTypeFormat() !== 'json') {
-            throw new Exception('Unsupported content type');
-        }
-
-        try {
-            $data = json_decode($request->getContent(), true);
-
-            if (!isset($data['refresh_token'])) {
-                throw new Exception('Field "refresh_token" is required.');
-            }
-
-            if (!is_string($data['refresh_token'])) {
-                throw new Exception('Field "refresh_token" must be a string.');
-            }
-
-            return $data['refresh_token'];
-        } catch (NotEncodableValueException | UnexpectedValueException $e) {
-            throw new Exception($e->getMessage());
-        }
-    }
 }

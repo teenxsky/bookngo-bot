@@ -10,7 +10,7 @@ use Override;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
-class HouseDTO extends BaseDTO
+class HouseDTO implements BaseDTO
 {
     #[Groups(['read'])]
     public ?int $id = null;

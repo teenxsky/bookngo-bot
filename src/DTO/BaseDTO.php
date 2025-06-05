@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace App\DTO;
 
-abstract class BaseDTO
+interface BaseDTO
 {
     /**
      * @return array
      */
-    abstract public function toArray(): array;
+    public function toArray(): array;
 
     /**
      * @param object $entity
      * @return self
      */
-    abstract public static function createFromEntity(object $entity): self;
+    public static function createFromEntity(object $entity): self;
 
     /**
      * @param object[] $entities
      * @return self[]
      */
-    abstract public static function createFromEntities(array $entities): array;
+    public static function createFromEntities(array $entities): array;
 }

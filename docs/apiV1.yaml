@@ -1463,19 +1463,9 @@ components:
       bearerFormat: JWT
       scheme: bearer
 tags:
-  -
-    name: Bookings
-    description: Bookings
-  -
-    name: Cities
-    description: Cities
-  -
-    name: Countries
-    description: Countries
-  -
-    name: Houses
-    description: Houses
-  -
-    name: Users
-    description: Users
+  - name: Bookings
+  - name: Cities
+  - name: Countries
+  - name: Houses
+  - name: Users
 

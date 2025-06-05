@@ -10,7 +10,7 @@ use Override;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
-class UserDTO extends BaseDTO
+class UserDTO implements BaseDTO
 {
     public ?int $id = null;
 
