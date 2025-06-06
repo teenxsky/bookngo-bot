@@ -4,6 +4,7 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+  locale: "en"
 
 services:
   # default configuration for services in *this* file
@@ -45,4 +46,64 @@ services:
           name: kernel.event_listener,
           event: lexik_jwt_authentication.on_jwt_authenticated,
           method: onJWTDecoded,
+        }
+
+  admin.house:
+    class: App\Admin\HouseAdmin
+    tags:
+      - {
+          name: sonata.admin,
+          model_class: App\Entity\House,
+          controller: ~,
+          manager_type: orm,
+          group: admin.menu.houses_management,
+          label: admin.houses.title,
+        }
+
+  admin.city:
+    class: App\Admin\CityAdmin
+    tags:
+      - {
+          name: sonata.admin,
+          model_class: App\Entity\City,
+          controller: ~,
+          manager_type: orm,
+          group: admin.menu.cities_management,
+          label: admin.cities.title,
+        }
+
+  admin.country:
+    class: App\Admin\CountryAdmin
+    tags:
+      - {
+          name: sonata.admin,
+          model_class: App\Entity\Country,
+          controller: ~,
+          manager_type: orm,
+          group: admin.menu.countries_management,
+          label: admin.countries.title,
+        }
+
+  admin.booking:
+    class: App\Admin\BookingAdmin
+    tags:
+      - {
+          name: sonata.admin,
+          model_class: App\Entity\Booking,
+          controller: ~,
+          manager_type: orm,
+          group: admin.menu.bookings_management,
+          label: admin.bookings.title,
+        }
+
+  admin.user:
+    class: App\Admin\UserAdmin
+    tags:
+      - {
+          name: sonata.admin,
+          model_class: App\Entity\User,
+          controller: ~,
+          manager_type: orm,
+          group: admin.menu.users_management,
+          label: admin.users.title,
         }

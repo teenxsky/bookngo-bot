@@ -43,9 +43,35 @@ class LoadStorageDataCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $io->title('Loading storage data into database');
 
+        if (!$io->confirm(
+            'Existing data on Countries, Cities, and Houses will be erased. Continue?'
+        )) {
+            $io->info('Loading storage data cancelled.');
+        }
+
         try {
             $this->entityManager->beginTransaction();
 
+            // Delete data
+            $io->section('Deleting houses...');
+            $this->entityManager->getConnection()->executeStatement(
+                'TRUNCATE TABLE houses RESTART IDENTITY CASCADE'
+            );
+            $io->success('Houses deleted successfully!');
+
+            $io->section('Deleting cities...');
+            $this->entityManager->getConnection()->executeStatement(
+                'TRUNCATE TABLE cities RESTART IDENTITY CASCADE'
+            );
+            $io->success('Cities deleted successfully!');
+
+            $io->section('Deleting countries...');
+            $this->entityManager->getConnection()->executeStatement(
+                'TRUNCATE TABLE countries RESTART IDENTITY CASCADE'
+            );
+            $io->success('Countries deleted successfully!');
+
+            // Load data
             $io->section('Loading countries...');
             $this->countriesRepository->loadFromCsv($this->countriesFilePath);
             $io->success('Countries loaded successfully!');
@@ -65,8 +91,8 @@ class LoadStorageDataCommand extends Command
             if ($this->entityManager->getConnection()->isTransactionActive()) {
                 $this->entityManager->rollback();
             }
-
             $io->error('Error loading data: ' . $e->getMessage());
+            $io->info('Rollback completed!');
             return Command::FAILURE;
         }
     }

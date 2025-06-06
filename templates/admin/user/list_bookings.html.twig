@@ -1,0 +1,46 @@
+{% extends '@SonataAdmin/CRUD/base_list_field.html.twig' %}
+
+{% block field %}
+    {% if value is empty %}
+        <span class="badge badge-warning">{{ 'admin.users.no_bookings'|trans }}</span>
+    {% else %}
+        {% set bookingAdmin = admin.getConfigurationPool().getAdminByClass('App\\Entity\\Booking') %}
+        <div class="booking-list">
+            {% set displayCount = min(value|length, 3) %}
+            <div class="badge badge-info">{{ value|length }}</div>
+            {% if bookingAdmin %}
+                <ul class="list-unstyled">
+                    {% for booking in value|slice(0, displayCount) %}
+                        <li>
+                            <a href="{{ bookingAdmin.generateObjectUrl('show', booking) }}" title="{{ booking }}">
+                                <i class="fa fa-calendar"></i>
+                                {{ booking.house ? booking.house.address|length > 20 ? booking.house.address|slice(0, 20) ~ '...' : booking.house.address : 'Unknown' }}
+                                <small class="text-muted">
+                                    ({{ booking.startDate|date('Y-m-d') }} - {{ booking.endDate|date('Y-m-d') }})
+                                </small>
+                            </a>
+                        </li>
+                    {% endfor %}
+                    
+                    {% if value|length > displayCount %}
+                        <li class="text-primary">
+                            <em>and {{ value|length - displayCount }} more...</em>
+                        </li>
+                    {% endif %}
+                </ul>
+            {% else %}
+                <ul class="list-unstyled">
+                    {% for booking in value|slice(0, displayCount) %}
+                        <li>{{ booking }}</li>
+                    {% endfor %}
+                    
+                    {% if value|length > displayCount %}
+                        <li class="text-primary">
+                            <em>and {{ value|length - displayCount }} more...</em>
+                        </li>
+                    {% endif %}
+                </ul>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endblock %}

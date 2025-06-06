@@ -25,7 +25,12 @@ class City
     #[ORM\JoinColumn(nullable: false)]
     private ?Country $country = null;
 
-    #[ORM\OneToMany(mappedBy: 'city', targetEntity: House::class)]
+    #[ORM\OneToMany(
+        mappedBy: 'city',
+        targetEntity: House::class,
+        orphanRemoval: true,
+        cascade: ['remove']
+    )]
     private Collection $houses;
 
     public function __construct()
@@ -75,5 +80,10 @@ class City
             $house->setCity($this);
         }
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return $this->name ?? 'City #' . ($this->id ?? '');
     }
 }

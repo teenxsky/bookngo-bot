@@ -9,6 +9,9 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use RuntimeException;
 
+/**
+ * @extends ServiceEntityRepository<Country>
+ */
 class CountriesRepository extends ServiceEntityRepository
 {
     private const COUNTRY_FIELDS = [

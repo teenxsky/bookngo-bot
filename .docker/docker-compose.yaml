@@ -23,7 +23,6 @@ services:
       context: ./../
       dockerfile: ./.docker/php/Dockerfile
     environment:
-      - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=${POSTGRES_PORT}
     volumes:
       - ./../:/var/www/app
@@ -52,7 +51,7 @@ services:
     command: ["postgres", "-c", "port=${POSTGRES_PORT}"]
     healthcheck:
       test:
-        ["CMD", "pg_isready", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}"]
+        ["CMD", "pg_isready", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}", "-p", "${POSTGRES_PORT}"]
       interval: 10s
       timeout: 5s
       retries: 5

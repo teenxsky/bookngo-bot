@@ -1,0 +1,12 @@
+{% set userAdmin = admin.getConfigurationPool().getAdminByClass('App\\Entity\\User') %}
+{% if 'ROLE_ADMIN' in object.roles and object.id != app.user.id %}
+    <a class="btn btn-sm btn-default disabled">
+        <i class="fa fa-pencil" aria-hidden="true"></i>
+        {{ 'action_edit'|trans({}, 'SonataAdminBundle') }}
+    </a>
+{% else %}
+    <a class="btn btn-sm btn-default" href="{{ userAdmin.generateObjectUrl('edit', object) }}" title="{{ 'action_edit'|trans({}, 'SonataAdminBundle') }}">
+        <i class="fa fa-pencil" aria-hidden="true"></i>
+        {{ 'action_edit'|trans({}, 'SonataAdminBundle') }}
+    </a>
+{% endif %}

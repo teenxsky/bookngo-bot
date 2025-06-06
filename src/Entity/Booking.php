@@ -30,7 +30,7 @@ class Booking
     #[ORM\Column]
     private ?DateTimeImmutable $endDate = null;
 
-    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'bookings')]
     #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'user_id', nullable: false)]
     private ?User $user = null;
 
@@ -101,5 +101,20 @@ class Booking
     {
         $this->endDate = $endDate;
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        $houseAddress = $this->house ? $this->house->getAddress() : 'Unknown';
+        $start        = $this->startDate ? $this->startDate->format('Y-m-d') : 'Unknown';
+        $end          = $this->endDate ? $this->endDate->format('Y-m-d') : 'Unknown';
+
+        return sprintf(
+            'Booking #%d: %s (%s - %s)',
+            $this->id ?? 0,
+            $houseAddress,
+            $start,
+            $end
+        );
     }
 }

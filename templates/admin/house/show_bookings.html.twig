@@ -1,0 +1,49 @@
+{% extends '@SonataAdmin/CRUD/base_show_field.html.twig' %}
+
+{% block field %}
+    {% if object.id is defined %}
+        {% set bookings = [] %}
+        {% set bookingAdmin = admin.getConfigurationPool().getAdminByClass('App\\Entity\\Booking') %}
+        {% for booking in object.bookings %}
+            {% set bookings = bookings|merge([booking]) %}
+        {% endfor %}
+
+        {% if bookings|length > 0 %}
+            <div class="box-body table-responsive no-padding">
+                <table class="table table-bordered table-striped">
+                    <thead>
+                        <tr>
+                            <th>{{ 'admin.bookings.phone'|trans }}</th>
+                            <th>{{ 'admin.bookings.telegram'|trans }}</th>
+                            <th>{{ 'admin.bookings.dates'|trans }}</th>
+                            <th>{{ 'admin.bookings.comment'|trans }}</th>
+                            <th>{{ 'admin.general.actions'|trans }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for booking in bookings %}
+                            <tr>
+                                <td>{{ booking.user.phoneNumber|default('-') }}</td>
+                                <td>{{ booking.user.telegramUsername|default('-') }}</td>
+                                <td>
+                                    <strong>{{ 'admin.bookings.from'|trans }}:</strong> {{ booking.startDate|date('Y-m-d') }}<br>
+                                    <strong>{{ 'admin.bookings.to'|trans }}:</strong> {{ booking.endDate|date('Y-m-d') }}
+                                </td>
+                                <td>{{ booking.comment|default('-') }}</td>
+                                <td>
+                                    <a href="{{ bookingAdmin.generateObjectUrl('show', booking) }}" class="btn btn-sm btn-info">
+                                        <i class="fa fa-eye"></i> {{ 'admin.general.show'|trans }}
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                {{ 'admin.users.no_bookings'|trans }}
+            </div>
+        {% endif %}
+    {% endif %}
+{% endblock %}

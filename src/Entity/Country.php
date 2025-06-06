@@ -24,7 +24,12 @@ class Country
     #[ORM\Column(length: 100)]
     private ?string $name = null;
 
-    #[ORM\OneToMany(mappedBy: 'country', targetEntity: City::class)]
+    #[ORM\OneToMany(
+        mappedBy: 'country',
+        targetEntity: City::class,
+        orphanRemoval: true,
+        cascade: ['remove']
+    )]
     private Collection $cities;
 
     public function __construct()
@@ -63,5 +68,10 @@ class Country
             $city->setCountry($this);
         }
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return $this->name ?? 'Country #' . ($this->id ?? '');
     }
 }

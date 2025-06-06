@@ -1,0 +1,11 @@
+{% extends '@SonataAdmin/CRUD/base_list_field.html.twig' %}
+
+{% block field %}
+    {% for role in value %}
+        {% if role == 'ROLE_ADMIN' %}
+            <span class="label label-danger">{{ 'admin.users.role.admin'|trans }}</span>
+        {% elseif role == 'ROLE_USER' %}
+            <span class="label label-primary">{{ 'admin.users.role.user'|trans }}</span>
+        {% endif %}
+    {% endfor %}
+{% endblock %}

@@ -46,7 +46,12 @@ class House
     #[ORM\JoinColumn(nullable: false)]
     private City $city;
 
-    #[ORM\OneToMany(mappedBy: 'house', targetEntity: Booking::class)]
+    #[ORM\OneToMany(
+        mappedBy: 'house',
+        targetEntity: Booking::class,
+        orphanRemoval: true,
+        cascade: ['remove']
+    )]
     private Collection $bookings;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -211,5 +216,10 @@ class House
         $this->imageUrl = $imageUrl;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return $this->address ?? 'Unknown';
     }
 }

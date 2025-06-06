@@ -19,6 +19,16 @@ security:
             refresh_jwt:
                 check_path: /api/auth/refresh
             entry_point: jwt
+        admin:
+            pattern: ^/admin
+            provider: app_user_provider
+            form_login:
+                login_path: admin_login
+                check_path: admin_login
+                default_target_path: sonata_admin_dashboard
+            logout:
+                path: admin_logout
+                target: admin_login
 
     access_control:
         - {
@@ -49,6 +59,9 @@ security:
             path: ^/api/v1/,
             roles: ROLE_ADMIN 
           }
+          
+        - { path: ^/admin/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/admin/, roles: ROLE_ADMIN }
 
 when@test:
     security:
