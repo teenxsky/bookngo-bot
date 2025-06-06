@@ -119,6 +119,13 @@ make migrate-db
 make set-webhook
 ```
 
+7. Load fixtures:
+
+```bash
+make load-storage-data # Load Cities, Countries and Houses
+make load-fake-data # Generate fake Users and Bookings
+```
+
 ## 🔧 Development
 
 ### Running Tests

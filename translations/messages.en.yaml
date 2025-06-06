@@ -85,6 +85,10 @@ admin:
     user: User
     from: From
     to: To
+    duration_days: Duration (Days)
+    day: Day
+    days: Days
+    user_readonly_help: This user is read-only and cannot be edited.
 
   users:
     title: Users
@@ -100,6 +104,9 @@ admin:
     user_bookings: User Bookings
     no_bookings: No bookings.
     token_version: Token Version
+    cannot_delete_admin: You cannot delete admin
+    cannot_change_own_roles: You cannot change own roles
+    cannot_change_other_roles: You cannot change other admins roles
     role:
       admin: Admin
       user: User
@@ -107,7 +114,7 @@ admin:
       title: "Confirmation of removal users"
       confirmation: "Are you sure you want to delete selected users?"
       bookings_warning: "Removing users will lead to the removal of all their bookings."
-  
+
   constraints:
     phone_number:
       format: The phone number should be in format +1234567890123
@@ -121,3 +128,7 @@ admin:
       max_length: Address cannot be longer than {{ limit }} characters
     country_name:
       max_length: Country name cannot be longer than {{ limit }} characters'
+    start_date:
+      greater_than_now: Start date must be after current date
+    end_date:
+      greater_than_start: End date must be after start date

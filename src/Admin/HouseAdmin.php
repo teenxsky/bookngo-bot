@@ -43,6 +43,18 @@ final class HouseAdmin extends AbstractAdmin
     }
 
     #[Override]
+    public function preUpdate(object $object): void
+    {
+        $this->updateAmenitiesFromForm($object);
+    }
+
+    #[Override]
+    public function prePersist(object $object): void
+    {
+        $this->updateAmenitiesFromForm($object);
+    }
+
+    #[Override]
     public function configureFormFields(FormMapper $form): void
     {
         $form
@@ -66,6 +78,7 @@ final class HouseAdmin extends AbstractAdmin
                     ])
             ->add('pricePerNight', Type\MoneyType::class, [
                         'label'       => 'admin.houses.price_per_night',
+                        'currency'    => 'USD',
                         'constraints' => [
                             new Assert\Range(min: 100, max: 100000),
                         ],
@@ -94,26 +107,21 @@ final class HouseAdmin extends AbstractAdmin
             ->end()
             ->tab('amenities', ['label' => 'admin.houses.amenities'])
             ->with('features', ['class' => 'col-md-12', 'label' => 'admin.houses.features'])
-            ->add('hasAirConditioning', Type\CheckboxType::class, [
-                        'label'    => 'admin.houses.has_air_conditioning',
-                        'required' => false
-                    ])
-            ->add('hasWifi', Type\CheckboxType::class, [
-                        'label'    => 'admin.houses.has_wifi',
-                        'required' => false
-                    ])
-            ->add('hasKitchen', Type\CheckboxType::class, [
-                        'label'    => 'admin.houses.has_kitchen',
-                        'required' => false
-                    ])
-            ->add('hasParking', Type\CheckboxType::class, [
-                        'label'    => 'admin.houses.has_parking',
-                        'required' => false
-                    ])
-            ->add('hasSeaView', Type\CheckboxType::class, [
-                        'label'    => 'admin.houses.has_sea_view',
-                        'required' => false
-                    ])
+            ->add('amenities', Type\ChoiceType::class, [
+                'label'   => 'admin.houses.amenities',
+                'choices' => [
+                    'admin.houses.has_air_conditioning' => 'hasAirConditioning',
+                    'admin.houses.has_wifi'             => 'hasWifi',
+                    'admin.houses.has_kitchen'          => 'hasKitchen',
+                    'admin.houses.has_parking'          => 'hasParking',
+                    'admin.houses.has_sea_view'         => 'hasSeaView',
+                ],
+                'multiple' => true,
+                'expanded' => false,
+                'required' => false,
+                'mapped'   => false,
+                'data'     => $this->getAmenitiesFromHouse($this->getSubject()),
+            ])
             ->end()
             ->end();
     }
@@ -233,5 +241,55 @@ final class HouseAdmin extends AbstractAdmin
             ->add('hasSeaView', null, ['label' => 'admin.houses.has_sea_view'])
             ->end()
             ->end();
+    }
+
+    /**
+     * @param House|null $house
+     * @return array<int, string>
+     */
+    private function getAmenitiesFromHouse(?House $house): array
+    {
+        if (!$house) {
+            return [];
+        }
+
+        $amenities = [];
+        if ($house->hasAirConditioning()) {
+            $amenities[] = 'hasAirConditioning';
+        }
+        if ($house->hasWifi()) {
+            $amenities[] = 'hasWifi';
+        }
+        if ($house->hasKitchen()) {
+            $amenities[] = 'hasKitchen';
+        }
+        if ($house->hasParking()) {
+            $amenities[] = 'hasParking';
+        }
+        if ($house->hasSeaView()) {
+            $amenities[] = 'hasSeaView';
+        }
+
+        return $amenities;
+    }
+
+    /**
+     * @param House $house
+     * @return void
+     */
+    private function updateAmenitiesFromForm(House $house): void
+    {
+        $form = $this->getForm();
+        if (!$form->has('amenities')) {
+            return;
+        }
+
+        $selectedAmenities = $form->get('amenities')->getData() ?? [];
+
+        $house->setHasAirConditioning(in_array('hasAirConditioning', $selectedAmenities, true));
+        $house->setHasWifi(in_array('hasWifi', $selectedAmenities, true));
+        $house->setHasKitchen(in_array('hasKitchen', $selectedAmenities, true));
+        $house->setHasParking(in_array('hasParking', $selectedAmenities, true));
+        $house->setHasSeaView(in_array('hasSeaView', $selectedAmenities, true));
     }
 }

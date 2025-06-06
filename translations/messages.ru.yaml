@@ -85,6 +85,10 @@ admin:
     user: Пользователь
     from: С
     to: По
+    duration_days: Продолжительность (Дни)
+    day: День
+    days: Дни
+    user_readonly_help: Этот пользователь доступен только для чтения и не может быть изменен.
 
   users:
     title: Пользователи
@@ -100,6 +104,9 @@ admin:
     user_bookings: Бронирования пользователя
     no_bookings: Нет броней.
     token_version: Версия токена
+    cannot_delete_admin: Вы не можете удалить администратора
+    cannot_change_own_roles: Вы не можете изменить свои роли
+    cannot_change_other_roles: Вы не можете изменить роли других администраторов
     role:
       admin: Администратор
       user: Пользователь
@@ -121,3 +128,7 @@ admin:
       max_length: Адрес не может быть длиннее {{ limit }} символов
     country_name:
       max_length: Название страны не может быть длиннее {{ limit }} символов
+    start_date:
+      greater_than_now: Начальная дата должна быть позже текущей даты
+    end_date:
+      greater_than_start: Конечная дата должна быть позже начальной даты

@@ -32,7 +32,5 @@ class AdminSecurityController extends AbstractController
     #[Route('/admin/logout', name: 'admin_logout')]
     public function logout(): void
     {
-        // Контроллер не будет выполнен,
-        // так как маршрут перехватывается Symfony Security
     }
 }

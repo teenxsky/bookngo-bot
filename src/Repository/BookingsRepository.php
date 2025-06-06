@@ -13,6 +13,9 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use RuntimeException;
 
+/**
+ * @extends ServiceEntityRepository<Booking>
+ */
 class BookingsRepository extends ServiceEntityRepository
 {
     private const BOOKING_FIELDS = [

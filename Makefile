@@ -50,7 +50,8 @@ diff-migration:
 
 # Make dumb and after this executes Doctrine migrations
 migrate-db:
-	make create-dump && $(DOCKER_COMPOSE) exec backend bash -c "bin/console doctrine:migrations:migrate"
+	make create-dump && \
+    $(DOCKER_COMPOSE) exec backend bash -c "bin/console doctrine:migrations:migrate"
 
 # Creates a new database for tests
 create-test-db:
@@ -62,11 +63,17 @@ migrate-test-db:
 
 # Creates database backup (dump.sql)
 create-dump:
-	$(DOCKER_COMPOSE) exec database bash -c 'PGPASSWORD=$(POSTGRES_PASSWORD) pg_dump --username $(POSTGRES_USER) $(POSTGRES_DB) > /docker-entrypoint-initdb.d/dump__$$(date +%H:%M:%S__%d-%m-%Y).sql'
+	$(DOCKER_COMPOSE) exec database bash -c 'PGPASSWORD=$(POSTGRES_PASSWORD) \
+	pg_dump --username $(POSTGRES_USER) \
+	-p $(POSTGRES_PORT) $(POSTGRES_DB) > /docker-entrypoint-initdb.d/dump__$$(date +%H:%M:%S__%d-%m-%Y).sql'
 
 # Load storage data into database
 load-storage-data:
 	$(DOCKER_COMPOSE) exec backend bash -c "bin/console app:load-storage-data"
+
+# Load fake data into the database
+load-fake-data:
+	$(DOCKER_COMPOSE) exec backend bash -c "bin/console app:load-fake-data"
 
 
 #--------------- SYMFONY COMMANDS ---------------#
@@ -141,7 +148,7 @@ run-fix:
 phpcs:
 	$(DOCKER_COMPOSE) exec backend bash -c "vendor/bin/phpcs --standard='phpcs.xml'"
 
-# Run php fixing errors by CodeSniffer 
+# Run php fixing errors by CodeSniffer
 phpcs-fix:
 	$(DOCKER_COMPOSE) exec backend bash -c "vendor/bin/phpcbf --standard='phpcs.xml'"
 
@@ -168,7 +175,7 @@ psalm-fix:
 run-tests:
 	$(DOCKER_COMPOSE) exec backend bash -c "vendor/bin/phpunit"
 
-# Run service tests in the backend container 
+# Run service tests in the backend container
 run-tests-service:
 	$(DOCKER_COMPOSE) exec backend bash -c "vendor/bin/phpunit tests/Service"
 
