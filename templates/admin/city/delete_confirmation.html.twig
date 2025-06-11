@@ -1,0 +1,48 @@
+{% extends '@SonataAdmin/CRUD/batch_confirmation.html.twig' %}
+
+{% block content %}
+    <div class="card card-danger">
+        <div class="card-header">
+            <h3 class="card-title">
+                {{ 'admin.cities.delete.title'|trans }}
+            </h3>
+        </div>
+
+        <div class="card-body">
+            <div class="alert alert-danger">
+                {% if all_elements is defined and all_elements %}
+                    {{ 'message_batch_all_confirmation'|trans }}
+                {% else %}
+                    {{ 'admin.cities.delete.confirmation'|trans }}
+                {% endif %}
+            </div>
+
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>{{ 'admin.general.warning'|trans }}</strong><br>
+                {{ 'admin.cities.delete.bookings_warning'|trans }}
+            </div>
+        </div>
+
+        <div class="card-footer">
+            <form method="POST" action="{{ admin.generateUrl('batch', {'action': action}) }}">
+                <input type="hidden" name="confirmation" value="ok">
+                <input type="hidden" name="data" value="{{ data|json_encode }}">
+
+                {% if all_elements is defined %}
+                    <input type="hidden" name="all_elements" value="{{ all_elements ? 1 : 0 }}">
+                {% endif %}
+
+                <input type="hidden" name="_sonata_csrf_token" value="{{ csrf_token }}">
+
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash-alt"></i> {{ 'btn_execute_batch_action'|trans({}, 'SonataAdminBundle') }}
+                </button>
+
+                <a class="btn btn-secondary" href="{{ admin.generateUrl('list') }}">
+                    <i class="fas fa-list"></i> {{ 'link_action_list'|trans({}, 'SonataAdminBundle') }}
+                </a>
+            </form>
+        </div>
+    </div>
+{% endblock %}

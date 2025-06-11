@@ -50,7 +50,8 @@ diff-migration:
 
 # Make dumb and after this executes Doctrine migrations
 migrate-db:
-	make create-dump && $(DOCKER_COMPOSE) exec backend bash -c "bin/console doctrine:migrations:migrate"
+	make create-dump && \
+    $(DOCKER_COMPOSE) exec backend bash -c "bin/console doctrine:migrations:migrate"
 
 # Creates a new database for tests
 create-test-db:
@@ -62,11 +63,17 @@ migrate-test-db:
 
 # Creates database backup (dump.sql)
 create-dump:
-	$(DOCKER_COMPOSE) exec database bash -c 'PGPASSWORD=$(POSTGRES_PASSWORD) pg_dump --username $(POSTGRES_USER) $(POSTGRES_DB) > /docker-entrypoint-initdb.d/dump__$$(date +%H:%M:%S__%d-%m-%Y).sql'
+	$(DOCKER_COMPOSE) exec database bash -c 'PGPASSWORD=$(POSTGRES_PASSWORD) \
+	pg_dump --username $(POSTGRES_USER) \
+	-p $(POSTGRES_PORT) $(POSTGRES_DB) > /docker-entrypoint-initdb.d/dump__$$(date +%H:%M:%S__%d-%m-%Y).sql'
 
 # Load storage data into database
 load-storage-data:
 	$(DOCKER_COMPOSE) exec backend bash -c "bin/console app:load-storage-data"
+
+# Load fake data into the database
+load-fake-data:
+	$(DOCKER_COMPOSE) exec backend bash -c "bin/console app:load-fake-data"
 
 
 #--------------- SYMFONY COMMANDS ---------------#
@@ -84,6 +91,16 @@ add-dependency:
 	@bash -c 'read -p "Enter the dependency name: " dep_name && \
 	echo "Installing dependency: $$dep_name" && \
 	$(DOCKER_COMPOSE) exec backend bash -c "composer require $$dep_name"'
+
+# Remove symfony dependency
+remove-dependency:
+	@bash -c 'read -p "Enter the dependency name: " dep_name && \
+	echo "Removing dependency: $$dep_name" && \
+	$(DOCKER_COMPOSE) exec backend bash -c "composer remove $$dep_name"'
+
+# Clear cache
+clear-cache:
+	$(DOCKER_COMPOSE) exec backend bash -c "bin/console cache:clear"
 
 # Open backend container shell
 shell-backend:
@@ -131,7 +148,7 @@ run-fix:
 phpcs:
 	$(DOCKER_COMPOSE) exec backend bash -c "vendor/bin/phpcs --standard='phpcs.xml'"
 
-# Run php fixing errors by CodeSniffer 
+# Run php fixing errors by CodeSniffer
 phpcs-fix:
 	$(DOCKER_COMPOSE) exec backend bash -c "vendor/bin/phpcbf --standard='phpcs.xml'"
 
@@ -158,7 +175,7 @@ psalm-fix:
 run-tests:
 	$(DOCKER_COMPOSE) exec backend bash -c "vendor/bin/phpunit"
 
-# Run service tests in the backend container 
+# Run service tests in the backend container
 run-tests-service:
 	$(DOCKER_COMPOSE) exec backend bash -c "vendor/bin/phpunit tests/Service"
 
@@ -213,6 +230,7 @@ help:
 	@echo "  \033[1;36mcreate-entity\033[0m        - Make a new entity in the backend container"
 	@echo "  \033[1;36mcreate-controller\033[0m    - Make a new symfony controller"
 	@echo "  \033[1;36madd-dependency\033[0m       - Add a new symfony dependency"
+	@echo "  \033[1;36mremove-dependency\033[0m    - Remove a symfony dependency"
 	@echo "  \033[1;36mshell-backend\033[0m        - Open backend container shell"
 	@echo "  \033[1;36mset-webhook\033[0m          - Set webhook for telegram"
 	@echo "  \033[1;36mcreate-admin\033[0m         - Create a new admin user"
@@ -238,4 +256,4 @@ help:
 	@echo "  \033[1;36mxdebug-enable\033[0m        - Enable Xdebug"
 	@echo "  \033[1;36mxdebug-disable\033[0m       - Disable Xdebug"
 
-.PHONY: build up up-logs down clean clean-volumes make-migrations create-db migrate-db create-test-db migrate-test-db create-dump create-entity create-controller add-dependency shell-backend run-tests run-tests-service run-tests-controller xdebug-status xdebug-enable xdebug-disable help run-lint phpcs phpcs-fix phpcs-fixer phpcs-fixer-fix run-fix psalm load-storage-data set-webhook diff-migration
+.PHONY: build up up-logs down clean clean-volumes make-migrations create-db migrate-db create-test-db migrate-test-db create-dump create-entity create-controller add-dependency shell-backend run-tests run-tests-service run-tests-controller xdebug-status xdebug-enable xdebug-disable help run-lint phpcs phpcs-fix phpcs-fixer phpcs-fixer-fix run-fix psalm load-storage-data set-webhook diff-migration remove-dependency

@@ -17,9 +17,11 @@ RUN docker-php-ext-install \
     pdo_pgsql \
     pgsql
 
-RUN apk add --no-cache autoconf g++ make linux-headers musl-dev \
+RUN apk add --no-cache autoconf g++ make linux-headers musl-dev icu-dev \
     && pecl install igbinary xdebug-3.4.1 redis \
-    && docker-php-ext-enable igbinary xdebug redis
+    && docker-php-ext-enable igbinary xdebug redis \
+    && docker-php-ext-configure intl \
+    && docker-php-ext-install intl
 
 COPY . .
 

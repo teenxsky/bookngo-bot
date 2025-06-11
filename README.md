@@ -27,6 +27,16 @@ Book&Go is a Telegram bot that simplifies the house booking process. Users can b
 - Receive booking confirmations
 - Add and edit booking comments
 
+### Admin Features
+
+- **Admin Dashboard**: Comprehensive web-based administration interface
+- **Houses Management**: Add, edit, and manage property listings with amenities
+- **Location Management**: Manage countries and cities
+- **Booking Management**: Oversee all reservations and bookings
+- **User Management**: Administer user accounts and permissions
+- **Multi-language Support**: Admin interface available in English and Russian
+- **Custom Templates**: Enhanced UI with image previews and data visualization
+
 ### Technical Features
 
 - Symfony 6.x framework
@@ -35,6 +45,8 @@ Book&Go is a Telegram bot that simplifies the house booking process. Users can b
 - Redis session management
 - Telegram Bot API integration
 - RESTful API architecture
+- **Sonata Admin Bundle**: Professional admin interface
+- **Internationalization**: Full i18n support with translation management
 
 ## 🛠 Tech Stack
 
@@ -45,6 +57,8 @@ Book&Go is a Telegram bot that simplifies the house booking process. Users can b
 - Doctrine ORM
 - PostgreSQL
 - Redis
+- Sonata Admin Bundle
+- Sonata Translation Bundle
 
 ### Infrastructure
 
@@ -103,6 +117,13 @@ make migrate-db
 
 ```bash
 make set-webhook
+```
+
+7. Load fixtures:
+
+```bash
+make load-storage-data # Load Cities, Countries and Houses
+make load-fake-data # Generate fake Users and Bookings
 ```
 
 ## 🔧 Development
@@ -186,6 +207,42 @@ make shell-backend
 5. Provide contact details
 6. Add comments (optional)
 7. Confirm booking
+
+## 🔧 Admin Interface
+
+### Access
+
+The admin interface is available at `/admin` and provides comprehensive management tools.
+
+### Admin Features
+
+#### Houses Management
+- Create and manage property listings
+- Set pricing and availability
+- Upload and manage property images
+- Configure amenities (WiFi, AC, Kitchen, Parking, Sea View)
+- Track booking statistics
+
+#### Location Management
+- Manage countries and cities
+- Organize geographical hierarchy
+- Control available booking locations
+
+#### Booking Management
+- View all reservations
+- Track booking status and details
+- Access customer information
+- Generate booking reports
+
+#### User Management
+- Administer user accounts
+- Manage user permissions
+- View user booking history
+
+### Internationalization
+- **English**: Full admin interface in English
+- **Russian**: Complete Russian translation
+- **Extensible**: Easy to add more languages
 
 ## 🔒 Security
 

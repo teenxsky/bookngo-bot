@@ -11,6 +11,9 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use RuntimeException;
 
+/**
+ * @extends ServiceEntityRepository<House>
+ */
 class HousesRepository extends ServiceEntityRepository
 {
     private const HOUSE_FIELDS = [

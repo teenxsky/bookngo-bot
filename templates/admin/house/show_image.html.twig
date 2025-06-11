@@ -1,0 +1,15 @@
+{% extends '@SonataAdmin/CRUD/base_show_field.html.twig' %}
+
+{% block field %}
+    <div class="house-image">
+        {% if value is not empty %}
+            <img src="{{ value }}" alt="{{ 'admin.houses.title'|trans }} {{ 'admin.general.image'|trans }}" style="max-width: 400px; max-height: 300px;" />
+            <br />
+            <a href="{{ value }}" target="_blank" class="btn btn-sm btn-primary" style="margin-top: 10px;">
+                <i class="fa fa-external-link"></i> {{ 'admin.general.view_full_image'|trans|default('View full image') }}
+            </a>
+        {% else %}
+            <span class="label label-warning">{{ 'admin.general.no_image'|trans|default('No image') }}</span>
+        {% endif %}
+    </div>
+{% endblock %}

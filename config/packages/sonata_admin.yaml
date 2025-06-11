@@ -1,0 +1,34 @@
+sonata_admin:
+  title: "Book&Go Admin"
+  dashboard:
+    groups:
+      houses_management:
+        label: admin.menu.houses_management
+        label_catalogue: messages
+        icon: '<i class="fa fa-home"></i>'
+        items:
+          - admin.house
+      location_management:
+        label: admin.menu.location_management
+        label_catalogue: messages
+        icon: '<i class="fa fa-map-marker"></i>'
+        items:
+          - admin.country
+          - admin.city
+      booking_management:
+        label: admin.menu.booking_management
+        label_catalogue: messages
+        icon: '<i class="fa fa-calendar"></i>'
+        items:
+          - admin.booking
+      user_management:
+        label: admin.menu.user_management
+        label_catalogue: messages
+        icon: '<i class="fa fa-users"></i>'
+        items:
+          - admin.user
+  templates:
+    layout: "@SonataTranslation/standard_layout.html.twig"
+  assets:
+    extra_stylesheets:
+      - bundles/sonatatranslation/css/sonata-translation.css
