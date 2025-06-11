@@ -8,10 +8,6 @@
   <img src="https://img.shields.io/badge/Redis-Latest-red" alt="Redis">
 </p>
 
-<p align="center">
-  <img src="https://s.iimg.su/s/20/th_K7lqKeWZsjo0vezqHCG3ia4bJw8OJcdm6w5Wj9Eb.jpg" alt="Book&Go Bot">
-</p>
-
 ## 🏠 About
 
 Book&Go is a Telegram bot that simplifies the house booking process. Users can browse available properties, make reservations, and manage their bookings through a convenient Telegram interface.
